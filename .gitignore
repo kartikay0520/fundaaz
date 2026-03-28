@@ -1,0 +1,27 @@
+# Environment & secrets — NEVER commit these
+.env
+*.env
+
+# Database file — server creates its own fresh copy
+database/fundaaz.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
