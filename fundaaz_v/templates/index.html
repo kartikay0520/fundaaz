@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your School Name – Academic Portal</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="landing-body">
+
+<div class="landing-grid"></div>
+
+<div class="landing-content">
+  <div class="brand-logo">
+    <div class="brand-logo-img">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="School Logo">
+    </div>
+  </div>
+  <p class="brand-tagline">Academic Performance Intelligence</p>
+
+  {% if msg %}
+  <div class="flash-error">⚠ {{ msg }}</div>
+  {% endif %}
+
+  <div class="login-cards" id="login-cards">
+    <div class="login-card" onclick="showForm('admin')">
+      <div class="login-card-icon">🛡️</div>
+      <div class="login-card-title">Admin Login</div>
+      <div class="login-card-sub">Manage students &amp; tests</div>
+    </div>
+    <div class="login-card" onclick="showForm('student')">
+      <div class="login-card-icon">🎓</div>
+      <div class="login-card-title">Student Login</div>
+      <div class="login-card-sub">View your performance</div>
+    </div>
+  </div>
+
+  <!-- Admin Login Form -->
+  <div class="login-box" id="form-admin" style="display:none">
+    <h2>Admin Login</h2>
+    <form method="POST" action="/login">
+      <input type="hidden" name="role" value="admin">
+      {% if error == 'admin' %}<div class="form-err">{{ msg }}</div>{% endif %}
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="uid" id="admin-uid" placeholder="admin" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="pwd" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Login →</button>
+    </form>
+    <button class="btn-text" onclick="showCards()">✕ Back</button>
+  </div>
+
+  <!-- Student Login Form -->
+  <div class="login-box" id="form-student" style="display:none">
+    <h2>Student Login</h2>
+    <form method="POST" action="/login">
+      <input type="hidden" name="role" value="student">
+      {% if error == 'student' %}<div class="form-err">{{ msg }}</div>{% endif %}
+      <div class="form-group">
+        <label>Student ID</label>
+        <input type="text" name="uid" id="student-uid" placeholder="e.g. aarav01" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="pwd" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Login →</button>
+    </form>
+    <button class="btn-text" onclick="showCards()">✕ Back</button>
+  </div>
+
+  <p class="landing-hint">Demo &nbsp;
+    <span class="demo-badge">admin / admin123</span>
+    &nbsp;·&nbsp;
+    <span class="demo-badge">aarav01 / pass123</span>
+  </p>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="landing-footer">
+    <div class="lf-col">
+      <div class="lf-heading">🏫 Organisation</div>
+      <div class="lf-line"><strong>FUNDAAZ</strong></div>
+      <div class="lf-line">📍 Fundaaz Education
+
+Faridabad Sector 85 branch
+<br>
+A44 BPTP Elite
+<br>
+1st floor
+<br>
+Near Puri Pranayam Apartments.
+<br>
+On the main road of Adore Market (few metres away from the Market).
+<br>
+<br>
+Faridabad Sector 17 Branch
+<br>
+1761/16
+<br>
+Sector 17 Market Corner
+<br>
+Opposite to "ENTRY GATE" of Sector 17 market.</div>
+      <div class="lf-line">Faridabad,Haryana , India</div>
+      <div class="lf-line">📞 <a href="tel:+919555666459">+91 95556 66459</a></div>
+      <div class="lf-line">📞 <a href="tel:+919818545682">+91 98185 45682</a></div>
+      <div class="lf-line">F-85📞 <a href="tel:+911294001713">+91 1294 001 713</a></div>
+      <div class="lf-line">F-17📞 <a href="tel:+9101294018711">+91 1294 018711</a></div>
+      <div class="lf-line">✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
+    </div>
+    <div class="lf-col">
+      <div class="lf-heading">🔗 Quick Links</div>
+      <div class="lf-line"><a href="/" onclick="showForm('admin')">Admin Login</a></div>
+      <div class="lf-line"><a href="/" onclick="showForm('student')">Student Login</a></div>
+    </div>
+    </div>
+  </footer>
+  <div class="lf-bottom">
+    © 2026 FUNDAAZ &nbsp;·&nbsp; Developed by Kartikay Sharma &nbsp;·&nbsp; All rights reserved
+  </div>
+</div>
+
+<script>
+function showForm(role) {
+  document.getElementById('login-cards').style.display = 'none';
+  document.getElementById('form-admin').style.display   = 'none';
+  document.getElementById('form-student').style.display = 'none';
+  var form = document.getElementById('form-' + role);
+  if (form) {
+    form.style.display = 'block';
+    var uid = document.getElementById(role + '-uid');
+    if (uid) setTimeout(function(){ uid.focus(); }, 50);
+  }
+}
+function showCards() {
+  document.getElementById('login-cards').style.display  = 'flex';
+  document.getElementById('form-admin').style.display   = 'none';
+  document.getElementById('form-student').style.display = 'none';
+}
+{% if error and error in ['admin','student'] %}
+showForm('{{ error }}');
+{% endif %}
+</script>
+</body>
+</html>
