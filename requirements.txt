@@ -1,0 +1,6 @@
+flask>=3.0.0
+gunicorn
+python-dotenv
+flask-limiter
+flask-talisman
+reportlab>=4.0.0
