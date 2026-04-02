@@ -71,7 +71,7 @@ python app.py
 
 | Role    | Login ID  | Password   |
 |---------|-----------|------------|
-| Admin   | `admin`   | `admin123` |
+| Admin   | `admin`   | `admin@321` |
 | Student | `aarav01` | `pass123`  |
 | Student | `priya01` | `pass123`  |
 | Student | `rajan01` | `pass123`  |
@@ -80,15 +80,35 @@ python app.py
 
 ---
 
-## 🌐 Deploy to Railway (with Custom Domain)
+## 🌐 Deploy to Render (with Custom Domain)
 
-1. Push code to GitHub (`.env` and `fundaaz.db` are in `.gitignore` — safe)
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-3. Add environment variable: `SECRET_KEY` = your generated key, `FLASK_ENV` = `production`
-4. Add a Persistent Volume at mount path `/app/database`
-5. Settings → Networking → Custom Domain → add your domain
-6. Add the CNAME record from Railway to your domain registrar DNS
-7. Railway auto-issues SSL — your site runs on HTTPS automatically
+1. Push your code to GitHub (`.env` and `fundaaz.db` are in `.gitignore` — safe)
+
+2. Go to https://render.com → New → Web Service → Connect your GitHub repository
+
+3. Configure your service:
+   - Environment: Python
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn app:app` (or your main file)
+
+4. Add environment variables in Render Dashboard:
+   - `SECRET_KEY` = your generated key
+   - `FLASK_ENV` = `production`
+
+5. Add a Persistent Disk:
+   - Go to Settings → Disks
+   - Mount Path: `/app/database`
+
+6. Deploy the service (Render will automatically build and deploy your app)
+
+7. Add Custom Domain:
+   - Go to Settings → Custom Domains
+   - Add your domain name
+
+8. Update your domain registrar DNS:
+   - Add the required records (CNAME or A record as provided by Render)
+
+9. Render automatically provisions SSL — your site will run on HTTPS
 
 ---
 
