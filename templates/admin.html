@@ -6,46 +6,11 @@
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta name="theme-color" content="#0a3d1f">
-<title>Your School Name – Admin</title>
+<title>Fundaaz Education – Admin</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-/* ── Searchable combo styles (Enter Marks only) ── */
-.combo-wrap {
-  position: relative;
-}
-.combo-wrap input[type="text"] {
-  width: 100%;
-  box-sizing: border-box;
-}
-.combo-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 999;
-  background: var(--light, #fff);
-  border: 1.5px solid var(--border, #ccc);
-  border-top: none;
-  border-radius: 0 0 var(--radius-sm, 6px) var(--radius-sm, 6px);
-  max-height: 220px;
-  overflow-y: auto;
-  box-shadow: 0 4px 14px rgba(0,0,0,.10);
-}
-.combo-dropdown.open { display: block; }
-.combo-option {
-  padding: .55rem 1rem;
-  font-size: .88rem;
-  cursor: pointer;
-  transition: background .12s;
-}
-.combo-option:hover,
-.combo-option.highlighted { background: var(--g6, #f0f7f2); color: var(--g1, #0a3d1f); }
-.combo-option.no-match { color: var(--gray, #888); cursor: default; font-style: italic; }
-</style>
 </head>
 <body class="dash-body">
 
@@ -467,84 +432,23 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       ENTER MARKS — searchable combo inputs added
-       Hidden <select> fields carry the real IDs for
-       form submission; visible text inputs filter the
-       dropdown list. Both work simultaneously.
-  ══════════════════════════════════════════════ -->
+  <!-- ENTER MARKS -->
   <div id="tab-marks" class="tab-page" style="display:none">
     <div class="page-header"><h1>Enter Marks</h1><p>Record test scores</p></div>
     <div class="form-card">
-      <form method="POST" action="/admin/marks/add" id="marks-form">
+      <form method="POST" action="/admin/marks/add">
         <div class="form-grid">
-
-          <!-- ── Student combo ── -->
-          <div class="form-group">
-            <label>Student *</label>
-            <!-- Hidden select that actually submits the value -->
-            <select name="student_id" id="marks-student-select" required style="display:none">
-              <option value="">-- Select student --</option>
-              {% for s in students %}
-              <option value="{{ s.id }}">{{ s.name }} ({{ s.login_id }})</option>
-              {% endfor %}
-            </select>
-            <!-- Visible combo -->
-            <div class="combo-wrap" id="student-combo-wrap">
-              <input
-                type="text"
-                id="marks-student-input"
-                class="combo-input"
-                placeholder="Type name or login ID…"
-                autocomplete="off"
-                required
-              >
-              <div class="combo-dropdown" id="student-combo-list">
-                {% for s in students %}
-                <div class="combo-option" data-value="{{ s.id }}" data-label="{{ s.name }} ({{ s.login_id }})">
-                  {{ s.name }} <span style="color:var(--gray);font-size:.82rem">({{ s.login_id }})</span>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Test combo ── -->
-          <div class="form-group">
-            <label>Test *</label>
-            <!-- Hidden select that actually submits the value -->
-            <select name="test_id" id="marks-test-select" required style="display:none">
-              <option value="">-- Select test --</option>
-              {% for t in tests %}
-              <option value="{{ t.id }}">{{ t.code }} – {{ t.subject }} ({{ t.total_marks }})</option>
-              {% endfor %}
-            </select>
-            <!-- Visible combo -->
-            <div class="combo-wrap" id="test-combo-wrap">
-              <input
-                type="text"
-                id="marks-test-input"
-                class="combo-input"
-                placeholder="Type test code or subject…"
-                autocomplete="off"
-                required
-              >
-              <div class="combo-dropdown" id="test-combo-list">
-                {% for t in tests %}
-                <div class="combo-option" data-value="{{ t.id }}" data-label="{{ t.code }} – {{ t.subject }} ({{ t.total_marks }})">
-                  <strong>{{ t.code }}</strong>
-                  <span style="color:var(--gray);font-size:.82rem"> – {{ t.subject }} ({{ t.total_marks }} marks)</span>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Marks ── -->
+          <div class="form-group"><label>Student *</label><select name="student_id" required>
+            <option value="">-- Select student --</option>
+            {% for s in students %}<option value="{{ s.id }}">{{ s.name }} ({{ s.login_id }})</option>{% endfor %}
+          </select></div>
+          <div class="form-group"><label>Test *</label><select name="test_id" required>
+            <option value="">-- Select test --</option>
+            {% for t in tests %}<option value="{{ t.id }}">{{ t.code }} – {{ t.subject }} ({{ t.total_marks }})</option>{% endfor %}
+          </select></div>
           <div class="form-group"><label>Marks *</label>
             <input name="marks" type="number" min="0" placeholder="Enter marks" required>
           </div>
-
         </div>
         <div class="form-actions"><button type="submit" class="btn btn-primary">✓ Save Marks</button></div>
       </form>
@@ -996,8 +900,8 @@ Sector 17 Market Corner
 Opposite to "ENTRY GATE" of Sector 17 market.</div>
         <div class="df-line">📞 <a href="tel:+919555666459">+91 95556 66459</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
         <div class="df-line">📞 <a href="tel:+919818545682">+91 98185 45682</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
-        <div class="df-line">F-85📞 <a href="tel:+911294001713">+91 1294 001 713</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
-        <div class="df-line">F-17📞 <a href="tel:+9101294018711">+91 1294 018711</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
+        <div class="df-line">F-85☎️ <a href="tel:+911294001713">+91 1294 001 713</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
+        <div class="df-line">F-17☎️ <a href="tel:+9101294018711">+91 1294 018711</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
         
       </div>
     </div>
@@ -1057,145 +961,6 @@ Opposite to "ENTRY GATE" of Sector 17 market.</div>
   const initTab='{{ init_tab if init_tab is defined else request.args.get("tab","overview") }}';
   switchTab(initTab);
   {% if found_student and progress_results %}loadAdminCharts({{ found_student.id }});{% endif %}
-</script>
-
-<!-- ══════════════════════════════════════════════
-     Searchable combo logic for Enter Marks tab
-     Works alongside the hidden <select> elements
-     so form submission is unchanged.
-══════════════════════════════════════════════ -->
-<script>
-(function () {
-  'use strict';
-
-  /**
-   * Wire up one combo:
-   *   inputEl   – visible text input
-   *   listEl    – the .combo-dropdown div
-   *   selectEl  – hidden <select> that holds the real value
-   */
-  function initCombo(inputEl, listEl, selectEl) {
-    if (!inputEl || !listEl || !selectEl) return;
-
-    const allOptions = Array.from(listEl.querySelectorAll('.combo-option'));
-    let highlighted = -1;
-
-    // Show / filter list on input
-    inputEl.addEventListener('input', function () {
-      const q = this.value.trim().toLowerCase();
-      let visCount = 0;
-      allOptions.forEach(function (opt) {
-        const label = opt.dataset.label.toLowerCase();
-        const show = !q || label.includes(q);
-        opt.style.display = show ? '' : 'none';
-        if (show) visCount++;
-      });
-      highlighted = -1;
-
-      // Show "no match" hint if nothing visible
-      let noMatch = listEl.querySelector('.no-match');
-      if (visCount === 0) {
-        if (!noMatch) {
-          noMatch = document.createElement('div');
-          noMatch.className = 'combo-option no-match';
-          noMatch.textContent = 'No matches found';
-          listEl.appendChild(noMatch);
-        }
-        noMatch.style.display = '';
-      } else if (noMatch) {
-        noMatch.style.display = 'none';
-      }
-
-      listEl.classList.add('open');
-
-      // Clear hidden select if user is typing again
-      selectEl.value = '';
-    });
-
-    // Open on focus
-    inputEl.addEventListener('focus', function () {
-      listEl.classList.add('open');
-    });
-
-    // Keyboard navigation
-    inputEl.addEventListener('keydown', function (e) {
-      const visible = allOptions.filter(function (o) { return o.style.display !== 'none' && !o.classList.contains('no-match'); });
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        highlighted = Math.min(highlighted + 1, visible.length - 1);
-        updateHighlight(visible);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        highlighted = Math.max(highlighted - 1, 0);
-        updateHighlight(visible);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (highlighted >= 0 && visible[highlighted]) {
-          selectOption(visible[highlighted], inputEl, listEl, selectEl);
-        }
-      } else if (e.key === 'Escape') {
-        listEl.classList.remove('open');
-      }
-    });
-
-    function updateHighlight(visible) {
-      visible.forEach(function (o, i) { o.classList.toggle('highlighted', i === highlighted); });
-      if (highlighted >= 0 && visible[highlighted]) {
-        visible[highlighted].scrollIntoView({ block: 'nearest' });
-      }
-    }
-
-    // Click on option
-    allOptions.forEach(function (opt) {
-      opt.addEventListener('mousedown', function (e) {
-        e.preventDefault(); // prevent blur before click fires
-        selectOption(opt, inputEl, listEl, selectEl);
-      });
-    });
-
-    // Close on outside click
-    document.addEventListener('click', function (e) {
-      if (!inputEl.contains(e.target) && !listEl.contains(e.target)) {
-        listEl.classList.remove('open');
-      }
-    });
-
-    // Validate on form submit — must have a real selection
-    var form = inputEl.closest('form');
-    if (form) {
-      form.addEventListener('submit', function (e) {
-        if (!selectEl.value) {
-          e.preventDefault();
-          inputEl.focus();
-          listEl.classList.add('open');
-          inputEl.style.borderColor = '#dc2626';
-          setTimeout(function () { inputEl.style.borderColor = ''; }, 1800);
-        }
-      });
-    }
-  }
-
-  function selectOption(opt, inputEl, listEl, selectEl) {
-    inputEl.value = opt.dataset.label;
-    selectEl.value = opt.dataset.value;
-    listEl.classList.remove('open');
-    inputEl.style.borderColor = '';
-  }
-
-  // Initialise both combos after DOM is ready
-  document.addEventListener('DOMContentLoaded', function () {
-    initCombo(
-      document.getElementById('marks-student-input'),
-      document.getElementById('student-combo-list'),
-      document.getElementById('marks-student-select')
-    );
-    initCombo(
-      document.getElementById('marks-test-input'),
-      document.getElementById('test-combo-list'),
-      document.getElementById('marks-test-select')
-    );
-  });
-})();
 </script>
 </body>
 </html>
