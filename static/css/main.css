@@ -232,3 +232,364 @@ code{background:var(--g6);padding:2px 7px;border-radius:5px;font-size:.8rem;font
   .landing-footer { grid-template-columns:1fr }
   .lf-col:last-child { grid-column:1 }
 }
+
+/* ══════════════════════════════════════════
+   BANNER SLIDER
+   Full-width horizontal strip at top of page
+   Each slide shows one banner image at a time
+   with a smooth crossfade transition
+══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   BANNER SLIDER — sleek thin strip with glow
+══════════════════════════════════════════ */
+.banner-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 64px;
+  overflow: hidden;
+  z-index: 50;
+  background: #000;
+  box-shadow: 0 1px 0 rgba(74,222,128,.25),
+              0 2px 20px rgba(0,0,0,.5);
+}
+
+/* Thin green glow line at bottom of banner */
+.banner-strip::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(74,222,128,.7) 30%,
+    rgba(74,222,128,1) 50%,
+    rgba(74,222,128,.7) 70%,
+    transparent 100%);
+  z-index: 6;
+}
+
+.banner-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.banner-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .8s ease-in-out;
+  pointer-events: none;
+}
+
+.banner-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.banner-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
+  filter: brightness(.85) contrast(1.05);
+}
+
+/* Subtle dark vignette on sides */
+.banner-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    rgba(0,0,0,.35) 0%,
+    transparent 15%,
+    transparent 85%,
+    rgba(0,0,0,.35) 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Banner dots — tiny, low profile */
+.banner-dots {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 5;
+}
+
+.banner-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background .3s, transform .3s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.banner-dot.active {
+  background: rgba(74,222,128,.9);
+  transform: scale(1.4);
+}
+
+/* Banner arrows — minimal */
+.banner-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-60%);
+  background: rgba(0,0,0,.4);
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.8);
+  font-size: 1.1rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: background .2s, border-color .2s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+
+.banner-arrow:hover {
+  background: rgba(74,222,128,.3);
+  border-color: rgba(74,222,128,.6);
+}
+.banner-prev { left: 8px }
+.banner-next { right: 8px }
+
+/* Push landing content below the banner */
+.landing-body {
+  padding-top: 74px;
+}
+
+@media(max-width:600px){
+  .banner-strip  { height: 52px }
+  .landing-body  { padding-top: 62px }
+  .banner-arrow  { width:18px; height:18px; font-size:.9rem }
+  .banner-dot    { width:4px; height:4px }
+}
+
+/* ══════════════════════════════════════════
+   TEAM SLIDESHOW — bigger card with full info
+══════════════════════════════════════════ */
+.team-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 460px;
+  margin: 2.2rem auto 0;
+}
+
+.team-heading {
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--g4);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+}
+
+.team-carousel {
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+}
+
+.team-track {
+  position: relative;
+  width: 100%;
+  min-height: 360px;
+}
+
+/* Each team slide */
+.team-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(20px) scale(.97);
+  transition: opacity .55s ease, transform .55s ease;
+  pointer-events: none;
+}
+
+.team-slide.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  position: relative;
+}
+
+.team-slide.exit {
+  opacity: 0;
+  transform: translateY(-20px) scale(.97);
+  position: absolute;
+  top: 0; left: 0; right: 0;
+}
+
+/* Photo — larger circle */
+.team-photo-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(74,222,128,.55);
+  box-shadow: 0 0 0 6px rgba(74,222,128,.08),
+              0 12px 36px rgba(0,0,0,.4);
+  margin-bottom: 1.1rem;
+  background: rgba(255,255,255,.06);
+  flex-shrink: 0;
+}
+
+.team-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.team-photo-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.5rem;
+  color: rgba(255,255,255,.25);
+  background: rgba(255,255,255,.05);
+}
+
+.team-photo-wrap img[src]:not([src=""]) + .team-photo-placeholder {
+  display: none;
+}
+
+/* Info card below photo */
+.team-info-card {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(74,222,128,.18);
+  border-radius: 14px;
+  padding: 1.1rem 1.6rem 1rem;
+  width: 100%;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.team-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: .22rem;
+  letter-spacing: .2px;
+}
+
+.team-designation {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--g4);
+  margin-bottom: .18rem;
+  letter-spacing: .3px;
+}
+
+.team-subject {
+  font-size: .76rem;
+  color: rgba(187,247,208,.75);
+  margin-bottom: .15rem;
+}
+
+.team-qualification {
+  font-size: .72rem;
+  color: rgba(255,255,255,.4);
+  font-style: italic;
+  margin-top: .1rem;
+}
+
+/* Divider line inside card */
+.team-divider {
+  width: 36px;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, rgba(74,222,128,.6), transparent);
+  margin: .5rem auto .55rem;
+}
+
+/* Team dots */
+.team-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 1.2rem;
+}
+
+.team-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background .3s, transform .3s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.team-dot.active {
+  background: var(--g4);
+  transform: scale(1.35);
+}
+
+/* Team arrows */
+.team-arrow {
+  position: absolute;
+  top: 70px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.7);
+  font-size: 1.3rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .2s, border-color .2s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+
+.team-arrow:hover {
+  background: rgba(74,222,128,.2);
+  border-color: rgba(74,222,128,.5);
+}
+.team-prev { left: -16px }
+.team-next { right: -16px }
+
+@media(max-width:520px){
+  .team-section    { max-width: 320px }
+  .team-photo-wrap { width: 130px; height: 130px }
+  .team-info-card  { padding: .9rem 1.1rem .8rem }
+  .team-name       { font-size: .95rem }
+  .team-prev       { left: -8px }
+  .team-next       { right: -8px }
+  .team-carousel   { min-height: 340px }
+  .team-track      { min-height: 320px }
+}
