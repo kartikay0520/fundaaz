@@ -6,15 +6,199 @@
 <title>Your School Name – Academic Portal</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── BANNER BOX — centered, floating, edges blend into background ── */
+.banner-wrap {
+  position: relative;
+  z-index: 10;
+  width: calc(100% - 48px);   /* space on left and right */
+  max-width: 900px;
+  margin: 20px auto 0;        /* top space + centered */
+  border-radius: 16px;
+  overflow: hidden;
+  height: 120px;
+  box-shadow: 0 4px 32px rgba(0,0,0,.45),
+              0 0 0 1px rgba(74,222,128,.18);
+  /* Edge fade — left and right sides blend into background */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+
+/* Green glow line at bottom of banner */
+.banner-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(74,222,128,.8) 30%,
+    rgba(74,222,128,1) 50%,
+    rgba(74,222,128,.8) 70%,
+    transparent
+  );
+  z-index: 6;
+  pointer-events: none;
+}
+
+.banner-strip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.banner-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.banner-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .9s ease-in-out;
+  pointer-events: none;
+}
+.banner-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.banner-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  filter: brightness(.88) contrast(1.05);
+}
+
+/* Dots */
+.banner-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 5;
+}
+.banner-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  border: none; cursor: pointer; padding: 0;
+  transition: background .3s, transform .3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.banner-dot.active {
+  background: rgba(74,222,128,.95);
+  transform: scale(1.5);
+}
+
+/* Arrows */
+.banner-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,.38);
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.8);
+  font-size: 1rem;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5;
+  transition: background .2s, border-color .2s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+.banner-arrow:hover {
+  background: rgba(74,222,128,.35);
+  border-color: rgba(74,222,128,.6);
+}
+.banner-prev { left: 10px }
+.banner-next { right: 10px }
+
+@media(max-width:600px){
+  .banner-wrap {
+    width: calc(100% - 28px);
+    height: 80px;
+    margin-top: 14px;
+    border-radius: 12px;
+  }
+  .banner-arrow { width:20px; height:20px; font-size:.85rem }
+}
+@media(max-width:380px){
+  .banner-wrap { height: 64px; width: calc(100% - 18px) }
+}
+</style>
 </head>
 <body class="landing-body">
 
 <div class="landing-grid"></div>
 
 <div class="landing-content">
-  <div class="brand-logo">
+
+  <!-- ══ BANNER BOX — top, centered, edges fade into background ══ -->
+  <!--
+    Add banner images to static/images/ named: banner1.jpeg, banner2.jpeg ...
+    Recommended size: 900x120px or wider (keep aspect ratio wide)
+    To add more: copy a banner-slide block and change the filename
+  -->
+  <div class="banner-wrap">
+    <div class="banner-strip">
+      <div class="banner-track" id="banner-track">
+
+        <!-- BANNER 1 -->
+        <div class="banner-slide">
+          <img src="{{ url_for('static', filename='images/banner1.jpeg') }}"
+               alt="Banner 1" onerror="this.parentElement.style.display='none'">
+        </div>
+
+        <!-- BANNER 2 -->
+        <div class="banner-slide">
+          <img src="{{ url_for('static', filename='images/banner2.jpeg') }}"
+               alt="Banner 2" onerror="this.parentElement.style.display='none'">
+        </div>
+
+        <!-- BANNER 3 -->
+        <div class="banner-slide">
+          <img src="{{ url_for('static', filename='images/banner3.jpeg') }}"
+               alt="Banner 3" onerror="this.parentElement.style.display='none'">
+        </div>
+
+        <!-- ADD MORE BANNERS — copy a block above and change filename -->
+
+      </div>
+      <div class="banner-dots" id="banner-dots"></div>
+      <button class="banner-arrow banner-prev" onclick="bannerPrev()" aria-label="Previous">&#8249;</button>
+      <button class="banner-arrow banner-next" onclick="bannerNext()" aria-label="Next">&#8250;</button>
+    </div>
+  </div>
+
+  <!-- ══ LOGO + TAGLINE ══ -->
+  <div class="brand-logo" style="margin-top:1.6rem">
     <div class="brand-logo-img">
-      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="School Logo">
+      <img src="{{ url_for('static', filename='images/logo.png') }}"
+           alt="School Logo" onerror="this.style.display='none'">
     </div>
   </div>
   <p class="brand-tagline">Academic Performance Intelligence</p>
@@ -23,6 +207,7 @@
   <div class="flash-error">⚠ {{ msg }}</div>
   {% endif %}
 
+  <!-- ══ LOGIN CARDS ══ -->
   <div class="login-cards" id="login-cards">
     <div class="login-card" onclick="showForm('admin')">
       <div class="login-card-icon">🛡️</div>
@@ -44,7 +229,7 @@
       {% if error == 'admin' %}<div class="form-err">{{ msg }}</div>{% endif %}
       <div class="form-group">
         <label>Username</label>
-        <input type="text" name="uid" id="admin-uid" placeholder="admin" required>
+        <input type="text" name="uid" id="admin-uid" placeholder="admin-id" required>
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -63,7 +248,7 @@
       {% if error == 'student' %}<div class="form-err">{{ msg }}</div>{% endif %}
       <div class="form-group">
         <label>Student ID</label>
-        <input type="text" name="uid" id="student-uid" placeholder="e.g. aarav01" required>
+        <input type="text" name="uid" id="student-uid" placeholder="e.g. Student_name01" required>
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -74,13 +259,75 @@
     <button class="btn-text" onclick="showCards()">✕ Back</button>
   </div>
 
-  <!--<p class="landing-hint">Demo &nbsp;
-    <span class="demo-badge">admin / admin123</span>
-    &nbsp;·&nbsp;
-    <span class="demo-badge">aarav01 / pass123</span>
-  </p>-->
+  <!-- ══ TEAM SLIDESHOW ══ -->
+  <!--
+    Add team photos to static/images/ named: team1.jpg, team2.jpg ...
+    Recommended: 400x400px square. Update name/designation/subject/qualification below.
+    To add more members: copy a team-slide block and update details.
+  -->
+  <div class="team-section">
+    <div class="team-heading">Our Teaching Team</div>
+    <div class="team-carousel">
+      <div class="team-track" id="team-track">
 
-  <!-- ══ FOOTER ══ -->
+        <!-- MEMBER 1 -->
+        <div class="team-slide active">
+          <div class="team-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team1.jpeg') }}"
+                 alt="Teacher 1" onerror="this.src=''">
+            <div class="team-photo-placeholder">👤</div>
+          </div>
+          <div class="team-info-card">
+            <div class="team-name">Teacher Name 1</div>
+            <div class="team-divider"></div>
+            <div class="team-designation">Head of Department</div>
+            <div class="team-subject">📚 Mathematics &amp; Science</div>
+            <div class="team-qualification">M.Sc · B.Ed · 12 Years Experience</div>
+          </div>
+        </div>
+
+        <!-- MEMBER 2 -->
+        <div class="team-slide">
+          <div class="team-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team2.jpeg') }}"
+                 alt="Teacher 2" onerror="this.src=''">
+            <div class="team-photo-placeholder">👤</div>
+          </div>
+          <div class="team-info-card">
+            <div class="team-name">Teacher Name 2</div>
+            <div class="team-divider"></div>
+            <div class="team-designation">Senior Teacher</div>
+            <div class="team-subject">📚 English &amp; Hindi</div>
+            <div class="team-qualification">M.A · B.Ed · 8 Years Experience</div>
+          </div>
+        </div>
+
+        <!-- MEMBER 3 -->
+        <div class="team-slide">
+          <div class="team-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team3.jpeg') }}"
+                 alt="Teacher 3" onerror="this.src=''">
+            <div class="team-photo-placeholder">👤</div>
+          </div>
+          <div class="team-info-card">
+            <div class="team-name">Teacher Name 3</div>
+            <div class="team-divider"></div>
+            <div class="team-designation">Teacher</div>
+            <div class="team-subject">📚 Social Studies &amp; EVS</div>
+            <div class="team-qualification">B.A · B.Ed · 5 Years Experience</div>
+          </div>
+        </div>
+
+        <!-- ADD MORE MEMBERS HERE — copy a block above -->
+
+      </div>
+      <div class="team-dots" id="team-dots"></div>
+      <button class="team-arrow team-prev" onclick="teamPrev()" aria-label="Previous">&#8249;</button>
+      <button class="team-arrow team-next" onclick="teamNext()" aria-label="Next">&#8250;</button>
+    </div>
+  </div>
+
+<!-- ══ FOOTER ══ -->
   <footer class="landing-footer">
     <div class="lf-col">
       <div class="lf-heading">🏫 Organisation</div>
@@ -108,23 +355,33 @@ Opposite to "ENTRY GATE" of Sector 17 market.</div>
       <div class="lf-line">Faridabad,Haryana , India</div>
       <div class="lf-line">📞 <a href="tel:+919555666459">+91 95556 66459</a></div>
       <div class="lf-line">📞 <a href="tel:+919818545682">+91 98185 45682</a></div>
-      <div class="lf-line">F-85📞 <a href="tel:+911294001713">+91 1294 001 713</a></div>
-      <div class="lf-line">F-17📞 <a href="tel:+9101294018711">+91 1294 018711</a></div>
+      <div class="lf-line">F-85☎️ <a href="tel:+911294001713">+91 1294 001 713</a></div>
+      <div class="lf-line">F-17☎️ <a href="tel:+9101294018711">+91 1294 018711</a></div>
       <div class="lf-line">✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
     </div>
     <div class="lf-col">
       <div class="lf-heading">🔗 Quick Links</div>
       <div class="lf-line"><a href="/" onclick="showForm('admin')">Admin Login</a></div>
       <div class="lf-line"><a href="/" onclick="showForm('student')">Student Login</a></div>
+      <div class="lf-line"><a href="mailto:fundaazeducation@gmail.com">Contact School</a></div>
     </div>
+    <div class="lf-col">
+      <div class="lf-heading">👨‍💻 Developer</div>
+      <div class="lf-line"><strong>Kartikay Sharma</strong></div>
+      <div class="lf-line">✉️ <a href="mailto:kartikaysharma837905@gmail.com">kartikaysharma837905@gmail.com</a></div>
+      <div class="lf-line lf-about">
+        Designed for school academic tracking.
+      </div>
     </div>
   </footer>
   <div class="lf-bottom">
-    © 2026 FUNDAAZ &nbsp;·&nbsp; Developed by Kartikay Sharma &nbsp;·&nbsp; All rights reserved
+    © 2026 Fundaaz Education &nbsp;·&nbsp; Developed by Kartikay Sharma &nbsp;·&nbsp; All rights reserved
   </div>
-</div>
+
+</div><!-- end landing-content -->
 
 <script>
+// ── Login form toggle ──────────────────────────────────────────────
 function showForm(role) {
   document.getElementById('login-cards').style.display = 'none';
   document.getElementById('form-admin').style.display   = 'none';
@@ -144,6 +401,102 @@ function showCards() {
 {% if error and error in ['admin','student'] %}
 showForm('{{ error }}');
 {% endif %}
+
+// ── BANNER SLIDER ──────────────────────────────────────────────────
+(function() {
+  var track   = document.getElementById('banner-track');
+  var dotsBox = document.getElementById('banner-dots');
+  if (!track) return;
+  var slides  = track.querySelectorAll('.banner-slide');
+  var visible = Array.from(slides).filter(function(s){ return s.style.display !== 'none'; });
+  var total   = visible.length;
+  if (total === 0) {
+    var wrap = document.querySelector('.banner-wrap');
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+  var current = 0, timer = null, DELAY = 4000;
+  for (var i = 0; i < total; i++) {
+    var dot = document.createElement('button');
+    dot.className = 'banner-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', 'Banner ' + (i+1));
+    dot.addEventListener('click', (function(idx){ return function(){ goTo(idx); resetTimer(); }; })(i));
+    dotsBox.appendChild(dot);
+  }
+  function goTo(idx) {
+    visible[current].classList.remove('active');
+    dotsBox.children[current].classList.remove('active');
+    current = (idx + total) % total;
+    visible[current].classList.add('active');
+    dotsBox.children[current].classList.add('active');
+  }
+  function resetTimer() {
+    clearInterval(timer);
+    timer = setInterval(function(){ goTo(current + 1); }, DELAY);
+  }
+  visible.forEach(function(s, i){ s.classList.toggle('active', i === 0); });
+  resetTimer();
+  var strip = document.querySelector('.banner-wrap');
+  if (strip) {
+    strip.addEventListener('mouseenter', function(){ clearInterval(timer); });
+    strip.addEventListener('mouseleave', resetTimer);
+    var touchX = 0;
+    strip.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive:true});
+    strip.addEventListener('touchend', function(e){
+      var dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) { goTo(current + (dx < 0 ? 1 : -1)); resetTimer(); }
+    }, {passive:true});
+  }
+  window.bannerNext = function(){ goTo(current + 1); resetTimer(); };
+  window.bannerPrev = function(){ goTo(current - 1); resetTimer(); };
+})();
+
+// ── TEAM SLIDESHOW ─────────────────────────────────────────────────
+(function() {
+  var track   = document.getElementById('team-track');
+  var dotsBox = document.getElementById('team-dots');
+  if (!track) return;
+  var slides  = track.querySelectorAll('.team-slide');
+  var total   = slides.length;
+  if (total === 0) return;
+  var current = 0, timer = null, DELAY = 3500;
+  for (var i = 0; i < total; i++) {
+    var dot = document.createElement('button');
+    dot.className = 'team-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', 'Member ' + (i+1));
+    dot.addEventListener('click', (function(idx){ return function(){ teamGoTo(idx); resetTeam(); }; })(i));
+    dotsBox.appendChild(dot);
+  }
+  function teamGoTo(idx) {
+    slides[current].classList.remove('active','exit');
+    slides[current].classList.add('exit');
+    dotsBox.children[current].classList.remove('active');
+    var leaving = slides[current];
+    setTimeout(function(){ leaving.classList.remove('exit'); }, 600);
+    current = (idx + total) % total;
+    slides[current].classList.add('active');
+    dotsBox.children[current].classList.add('active');
+  }
+  function resetTeam() {
+    clearInterval(timer);
+    timer = setInterval(function(){ teamGoTo(current + 1); }, DELAY);
+  }
+  slides.forEach(function(s, i){ s.classList.toggle('active', i === 0); });
+  resetTeam();
+  var carousel = document.querySelector('.team-carousel');
+  var touchX = 0;
+  if (carousel) {
+    carousel.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive:true});
+    carousel.addEventListener('touchend', function(e){
+      var dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) { teamGoTo(current + (dx < 0 ? 1 : -1)); resetTeam(); }
+    }, {passive:true});
+    carousel.addEventListener('mouseenter', function(){ clearInterval(timer); });
+    carousel.addEventListener('mouseleave', resetTeam);
+  }
+  window.teamNext = function(){ teamGoTo(current + 1); resetTeam(); };
+  window.teamPrev = function(){ teamGoTo(current - 1); resetTeam(); };
+})();
 </script>
 </body>
 </html>
