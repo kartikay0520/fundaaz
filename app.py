@@ -6,7 +6,7 @@ import hashlib
 from datetime import date, timedelta
 from flask import (Flask, render_template, request,
                    redirect, url_for, session, jsonify, send_file, abort)
-from database.db import init_db, get_db, close_db
+from database.db import init_db, get_db, close_db, db_execute, db_commit
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -85,7 +85,7 @@ def login():
     db   = get_db()
 
     if role == 'admin':
-        admin = db.execute('SELECT * FROM admin WHERE username=?', (uid,)).fetchone()
+        admin = db_execute('SELECT * FROM admin WHERE username=?', (uid,)).fetchone()
         if admin and admin['password'] == hash_pwd(pwd):
             session['role']    = 'admin'
             session['user_id'] = 'admin'
@@ -93,7 +93,7 @@ def login():
         return render_template('index.html', error='admin', msg='Invalid admin credentials')
 
     elif role == 'student':
-        stu = db.execute('SELECT * FROM students WHERE login_id=?', (uid,)).fetchone()
+        stu = db_execute('SELECT * FROM students WHERE login_id=?', (uid,)).fetchone()
         if stu and stu['password'] == hash_pwd(pwd):
             session['role']    = 'student'
             session['user_id'] = stu['id']
@@ -114,16 +114,16 @@ def logout():
 def _admin_context():
     db = get_db()
     return dict(
-        students=db.execute('SELECT * FROM students ORDER BY name').fetchall(),
-        tests=db.execute('SELECT * FROM tests ORDER BY date DESC').fetchall(),
-        recent_results=db.execute('''
+        students=db_execute('SELECT * FROM students ORDER BY name').fetchall(),
+        tests=db_execute('SELECT * FROM tests ORDER BY date DESC').fetchall(),
+        recent_results=db_execute('''
             SELECT tr.id,tr.marks,s.name AS student_name,
                    t.code AS test_code,t.subject,t.total_marks
             FROM test_results tr
             JOIN students s ON tr.student_id=s.id
             JOIN tests t ON tr.test_id=t.id
             ORDER BY tr.id DESC LIMIT 10''').fetchall(),
-        all_results=db.execute('''
+        all_results=db_execute('''
             SELECT tr.id, tr.marks, tr.student_id,
                    s.name  AS student_name,
                    s.class AS student_class,
@@ -134,13 +134,13 @@ def _admin_context():
             JOIN students s ON tr.student_id = s.id
             JOIN tests    t ON tr.test_id    = t.id
             ORDER BY t.date DESC, s.name ASC''').fetchall(),
-        stats=db.execute('''SELECT
+        stats=db_execute('''SELECT
             (SELECT COUNT(*) FROM students)     AS students,
             (SELECT COUNT(*) FROM tests)        AS tests,
             (SELECT COUNT(*) FROM test_results) AS results,
             (SELECT COUNT(DISTINCT class) FROM students) AS classes
         ''').fetchone(),
-        notices=db.execute(
+        notices=db_execute(
             'SELECT * FROM notices ORDER BY display_order ASC, id DESC'
         ).fetchall(),
     )
@@ -166,13 +166,13 @@ def student_progress():
     topic_stats = []
 
     if query:
-        student = db.execute(
+        student = db_execute(
             "SELECT * FROM students WHERE login_id=? OR LOWER(name) LIKE ?",
             (query, f'%{query.lower()}%')
         ).fetchone()
 
         if student:
-            results = db.execute('''
+            results = db_execute('''
                 SELECT tr.marks, t.code, t.subject, t.total_marks,
                        t.date, t.chapter, t.topic
                 FROM test_results tr
@@ -228,7 +228,7 @@ def download_student_pdf(sid):
         return ('PDF generation unavailable. Run: pip install reportlab', 503)
 
     db      = get_db()
-    student = db.execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
+    student = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
     if not student: return abort(404)
 
     date_from = request.args.get('from', '').strip()
@@ -257,7 +257,7 @@ def download_student_pdf(sid):
         label = f'Until {date_to}'
 
     where_sql = ' AND '.join(where_parts)
-    results = db.execute(f'''
+    results = db_execute(f'''
         SELECT tr.marks, t.code, t.subject, t.total_marks,
                t.date, t.chapter, t.topic
         FROM test_results tr
@@ -307,7 +307,7 @@ def add_student():
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
     try:
-        db.execute(
+        db_execute(
             '''INSERT INTO students
                (name,class,batch,subjects,parent_name,parent_contact,login_id,password)
                VALUES (?,?,?,?,?,?,?,?)''',
@@ -316,7 +316,7 @@ def add_student():
              request.form['parent_contact'], request.form['login_id'],
              hash_pwd(request.form['password']))
         )
-        db.commit()
+        db_commit()
     except Exception as e:
         if 'UNIQUE' in str(e):
             return redirect(url_for('admin_dashboard')+'?tab=add-student&msg=Login+ID+already+exists&err=1')
@@ -328,14 +328,14 @@ def add_student():
 def edit_student(sid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute(
+    db_execute(
         '''UPDATE students SET name=?,class=?,batch=?,subjects=?,
            parent_name=?,parent_contact=? WHERE id=?''',
         (request.form['name'], request.form['class'], request.form['batch'],
          request.form['subjects'], request.form['parent_name'],
          request.form['parent_contact'], sid)
     )
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=students&msg=Student+updated')
 
 
@@ -343,9 +343,9 @@ def edit_student(sid):
 def delete_student(sid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute('DELETE FROM test_results WHERE student_id=?', (sid,))
-    db.execute('DELETE FROM students WHERE id=?', (sid,))
-    db.commit()
+    db_execute('DELETE FROM test_results WHERE student_id=?', (sid,))
+    db_execute('DELETE FROM students WHERE id=?', (sid,))
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=students&msg=Student+deleted')
 
 # ─────────────────────────────────────────────
@@ -356,7 +356,7 @@ def add_test():
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
     try:
-        db.execute(
+        db_execute(
             '''INSERT INTO tests
                (code,subject,total_marks,class,batch,date,chapter,topic)
                VALUES (?,?,?,?,?,?,?,?)''',
@@ -366,7 +366,7 @@ def add_test():
              request.form.get('chapter','').strip() or None,
              request.form.get('topic','').strip()   or None)
         )
-        db.commit()
+        db_commit()
     except Exception as e:
         if 'UNIQUE' in str(e):
             return redirect(url_for('admin_dashboard')+'?tab=add-test&msg=Test+code+already+exists&err=1')
@@ -378,7 +378,7 @@ def add_test():
 def edit_test(tid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute(
+    db_execute(
         '''UPDATE tests SET code=?,subject=?,total_marks=?,class=?,batch=?,
            date=?,chapter=?,topic=? WHERE id=?''',
         (request.form['code'].upper(), request.form['subject'],
@@ -388,7 +388,7 @@ def edit_test(tid):
          request.form.get('topic','').strip()   or None,
          tid)
     )
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=tests&msg=Test+updated')
 
 
@@ -396,9 +396,9 @@ def edit_test(tid):
 def delete_test(tid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute('DELETE FROM test_results WHERE test_id=?', (tid,))
-    db.execute('DELETE FROM tests WHERE id=?', (tid,))
-    db.commit()
+    db_execute('DELETE FROM test_results WHERE test_id=?', (tid,))
+    db_execute('DELETE FROM tests WHERE id=?', (tid,))
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=tests&msg=Test+deleted')
 
 # ─────────────────────────────────────────────
@@ -411,18 +411,18 @@ def add_marks():
     sid   = int(request.form['student_id'])
     tid   = int(request.form['test_id'])
     marks = int(request.form['marks'])
-    test  = db.execute('SELECT total_marks FROM tests WHERE id=?', (tid,)).fetchone()
+    test  = db_execute('SELECT total_marks FROM tests WHERE id=?', (tid,)).fetchone()
     if marks > test['total_marks']:
         return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Marks+exceed+total&err=1')
-    existing = db.execute(
+    existing = db_execute(
         'SELECT id FROM test_results WHERE student_id=? AND test_id=?', (sid, tid)
     ).fetchone()
     if existing:
-        db.execute('UPDATE test_results SET marks=? WHERE id=?', (marks, existing['id']))
+        db_execute('UPDATE test_results SET marks=? WHERE id=?', (marks, existing['id']))
     else:
-        db.execute('INSERT INTO test_results (student_id,test_id,marks) VALUES (?,?,?)',
+        db_execute('INSERT INTO test_results (student_id,test_id,marks) VALUES (?,?,?)',
                    (sid, tid, marks))
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Marks+saved')
 
 
@@ -430,8 +430,8 @@ def add_marks():
 def delete_marks(rid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute('DELETE FROM test_results WHERE id=?', (rid,))
-    db.commit()
+    db_execute('DELETE FROM test_results WHERE id=?', (rid,))
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Result+deleted')
 
 # ─────────────────────────────────────────────
@@ -441,7 +441,7 @@ def delete_marks(rid):
 def admin_change_password():
     if admin_required(): return redirect(url_for('index'))
     db      = get_db()
-    admin   = db.execute('SELECT * FROM admin').fetchone()
+    admin   = db_execute('SELECT * FROM admin').fetchone()
     old     = request.form.get('old_password', '')
     new     = request.form.get('new_password', '')
     confirm = request.form.get('confirm_password', '')
@@ -449,8 +449,8 @@ def admin_change_password():
         return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Wrong+current+password&err=1')
     if new != confirm or len(new) < 6:
         return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Password+mismatch+or+too+short&err=1')
-    db.execute('UPDATE admin SET password=?', (hash_pwd(new),))
-    db.commit()
+    db_execute('UPDATE admin SET password=?', (hash_pwd(new),))
+    db_commit()
     return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Password+updated')
 
 # ─────────────────────────────────────────────
@@ -461,8 +461,8 @@ def student_dashboard():
     if student_required(): return redirect(url_for('index'))
     db  = get_db()
     sid = session['user_id']
-    stu = db.execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
-    results = db.execute('''
+    stu = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
+    results = db_execute('''
         SELECT tr.*, t.code, t.subject, t.total_marks, t.date, t.chapter, t.topic
         FROM test_results tr JOIN tests t ON tr.test_id = t.id
         WHERE tr.student_id=? ORDER BY t.date DESC
@@ -475,7 +475,7 @@ def student_change_password():
     if student_required(): return redirect(url_for('index'))
     db      = get_db()
     sid     = session['user_id']
-    stu     = db.execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
+    stu     = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
     old     = request.form.get('old_password', '')
     new     = request.form.get('new_password', '')
     confirm = request.form.get('confirm_password', '')
@@ -483,8 +483,8 @@ def student_change_password():
         return redirect(url_for('student_dashboard')+'?tab=settings&msg=Wrong+current+password&err=1')
     if new != confirm or len(new) < 6:
         return redirect(url_for('student_dashboard')+'?tab=settings&msg=Password+mismatch&err=1')
-    db.execute('UPDATE students SET password=? WHERE id=?', (hash_pwd(new), sid))
-    db.commit()
+    db_execute('UPDATE students SET password=? WHERE id=?', (hash_pwd(new), sid))
+    db_commit()
     return redirect(url_for('student_dashboard')+'?tab=settings&msg=Password+updated')
 
 # ─────────────────────────────────────────────
@@ -515,7 +515,7 @@ def student_chart_data():
         params.append(str(today.replace(month=1, day=1)))
 
     where_sql = ' AND '.join(where_parts)
-    rows = db.execute(f'''
+    rows = db_execute(f'''
         SELECT t.code,t.subject,t.total_marks,tr.marks,t.date,t.chapter,t.topic
         FROM test_results tr JOIN tests t ON tr.test_id=t.id
         WHERE {where_sql} ORDER BY t.date
@@ -546,7 +546,7 @@ def student_chart_data():
 def admin_student_chart(sid):
     if admin_required(): return jsonify({})
     db   = get_db()
-    rows = db.execute('''
+    rows = db_execute('''
         SELECT t.code,t.subject,t.total_marks,tr.marks,t.date,t.chapter,t.topic
         FROM test_results tr JOIN tests t ON tr.test_id=t.id
         WHERE tr.student_id=? ORDER BY t.date
@@ -612,11 +612,11 @@ def add_notice():
     if 'image' in request.files:
         image_path = save_image(request.files['image'])
 
-    db.execute(
+    db_execute(
         'INSERT INTO notices (type, title, content, image_path, display_order) VALUES (?,?,?,?,?)',
         (ntype, title, content or None, image_path, order)
     )
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_notices') + '?msg=Notice+added')
 
 
@@ -630,7 +630,7 @@ def edit_notice(nid):
     order   = int(request.form.get('display_order', 0) or 0)
     active  = 1 if request.form.get('is_active') else 0
 
-    notice = db.execute('SELECT * FROM notices WHERE id=?', (nid,)).fetchone()
+    notice = db_execute('SELECT * FROM notices WHERE id=?', (nid,)).fetchone()
     if not notice:
         return redirect(url_for('admin_notices'))
 
@@ -651,11 +651,11 @@ def edit_notice(nid):
             os.remove(old_file)
         image_path = None
 
-    db.execute(
+    db_execute(
         'UPDATE notices SET type=?, title=?, content=?, image_path=?, is_active=?, display_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',
         (ntype, title, content or None, image_path, active, order, nid)
     )
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_notices') + '?msg=Notice+updated')
 
 
@@ -663,13 +663,13 @@ def edit_notice(nid):
 def delete_notice(nid):
     if admin_required(): return redirect(url_for('index'))
     db     = get_db()
-    notice = db.execute('SELECT image_path FROM notices WHERE id=?', (nid,)).fetchone()
+    notice = db_execute('SELECT image_path FROM notices WHERE id=?', (nid,)).fetchone()
     if notice and notice['image_path']:
         img_file = os.path.join(UPLOAD_FOLDER, notice['image_path'])
         if os.path.exists(img_file):
             os.remove(img_file)
-    db.execute('DELETE FROM notices WHERE id=?', (nid,))
-    db.commit()
+    db_execute('DELETE FROM notices WHERE id=?', (nid,))
+    db_commit()
     return redirect(url_for('admin_notices') + '?msg=Notice+deleted')
 
 
@@ -677,11 +677,11 @@ def delete_notice(nid):
 def toggle_notice(nid):
     if admin_required(): return redirect(url_for('index'))
     db = get_db()
-    db.execute(
+    db_execute(
         'UPDATE notices SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?',
         (nid,)
     )
-    db.commit()
+    db_commit()
     return redirect(url_for('admin_notices') + '?msg=Status+updated')
 
 
