@@ -15,6 +15,7 @@ import hashlib
 import os
 import logging #....
 from flask import g
+import psycopg2
 
 log = logging.getLogger('fundaaz.db') #........
 
