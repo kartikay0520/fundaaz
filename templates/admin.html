@@ -11,6 +11,68 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ── Combo Filter Styles (dropdown + text search) ── */
+.combo-filter-wrap {
+  position: relative;
+}
+.combo-filter-wrap label {
+  display: block;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--g1);
+  margin-bottom: .35rem;
+}
+.combo-input-row {
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+}
+.combo-input-row select {
+  flex: 1;
+  min-width: 0;
+}
+.combo-input-row .combo-text {
+  flex: 1;
+  min-width: 0;
+  padding: .62rem .9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  background: var(--light);
+  color: var(--g1);
+  transition: border-color .2s;
+}
+.combo-input-row .combo-text:focus {
+  outline: none;
+  border-color: var(--g2);
+}
+.combo-divider {
+  font-size: .72rem;
+  color: var(--gray);
+  white-space: nowrap;
+  padding: 0 .1rem;
+  flex-shrink: 0;
+}
+.combo-clear-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .5rem .65rem;
+  cursor: pointer;
+  font-size: .82rem;
+  color: var(--gray);
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.combo-clear-btn:hover {
+  color: var(--g1);
+  border-color: var(--g2);
+}
+</style>
 </head>
 <body class="dash-body">
 
@@ -250,7 +312,6 @@
     <div class="chart-container"><div class="chart-header"><h3>Subject Average</h3></div>
       <div style="position:relative;height:220px"><canvas id="admin-subject-chart"></canvas></div></div>
 
-    <!-- Topic Analysis (shown only when tests have chapter/topic) -->
     <div id="admin-topic-section" style="display:none">
       <div class="table-card" style="margin-bottom:1.4rem">
         <div class="table-header"><h3>🎯 Chapter &amp; Topic Analysis</h3></div>
@@ -296,7 +357,6 @@
           </div>{% endfor %}
         </div>
       </div>
-      <!-- Topic chart removed — see topic strength table above for topic analysis -->
     </div>
 
     <!-- PDF Download -->
@@ -432,20 +492,77 @@
     </div>
   </div>
 
-  <!-- ENTER MARKS -->
+  <!-- ══════════════════════════════════════════════════════
+       ENTER MARKS  — updated with combo dropdown + text search
+       ══════════════════════════════════════════════════════ -->
   <div id="tab-marks" class="tab-page" style="display:none">
     <div class="page-header"><h1>Enter Marks</h1><p>Record test scores</p></div>
     <div class="form-card">
       <form method="POST" action="/admin/marks/add">
         <div class="form-grid">
-          <div class="form-group"><label>Student *</label><select name="student_id" required>
-            <option value="">-- Select student --</option>
-            {% for s in students %}<option value="{{ s.id }}">{{ s.name }} ({{ s.login_id }})</option>{% endfor %}
-          </select></div>
-          <div class="form-group"><label>Test *</label><select name="test_id" required>
-            <option value="">-- Select test --</option>
-            {% for t in tests %}<option value="{{ t.id }}">{{ t.code }} – {{ t.subject }} ({{ t.total_marks }})</option>{% endfor %}
-          </select></div>
+
+          <!-- ── Student combo filter ── -->
+          <div class="form-group">
+            <label>Student *</label>
+
+            <!-- Text search -->
+            <div style="margin-bottom:.45rem">
+              <input
+                type="text"
+                id="marks-student-search"
+                class="combo-text"
+                placeholder="🔍 Type name or login ID to filter…"
+                oninput="comboFilterSelect('marks-student-search','marks-student-select')"
+                autocomplete="off"
+                style="width:100%">
+            </div>
+
+            <!-- Dropdown -->
+            <select name="student_id" id="marks-student-select" required>
+              <option value="">— Select student —</option>
+              {% for s in students %}
+              <option value="{{ s.id }}" data-search="{{ s.name|lower }} {{ s.login_id|lower }}">
+                {{ s.name }} ({{ s.login_id }})
+              </option>
+              {% endfor %}
+            </select>
+
+            <p style="font-size:.75rem;color:var(--gray);margin-top:.3rem">
+              Type above to narrow the list, then pick from the dropdown.
+            </p>
+          </div>
+
+          <!-- ── Test combo filter ── -->
+          <div class="form-group">
+            <label>Test *</label>
+
+            <!-- Text search -->
+            <div style="margin-bottom:.45rem">
+              <input
+                type="text"
+                id="marks-test-search"
+                class="combo-text"
+                placeholder="🔍 Type code or subject to filter…"
+                oninput="comboFilterSelect('marks-test-search','marks-test-select')"
+                autocomplete="off"
+                style="width:100%">
+            </div>
+
+            <!-- Dropdown -->
+            <select name="test_id" id="marks-test-select" required>
+              <option value="">— Select test —</option>
+              {% for t in tests %}
+              <option value="{{ t.id }}" data-search="{{ t.code|lower }} {{ t.subject|lower }}">
+                {{ t.code }} – {{ t.subject }} ({{ t.total_marks }})
+              </option>
+              {% endfor %}
+            </select>
+
+            <p style="font-size:.75rem;color:var(--gray);margin-top:.3rem">
+              Type above to narrow the list, then pick from the dropdown.
+            </p>
+          </div>
+
           <div class="form-group"><label>Marks *</label>
             <input name="marks" type="number" min="0" placeholder="Enter marks" required>
           </div>
@@ -455,7 +572,9 @@
     </div>
   </div>
 
-  <!-- ALL RESULTS TAB -->
+  <!-- ══════════════════════════════════════════════════════
+       ALL RESULTS — updated: all dropdowns now also have text inputs
+       ══════════════════════════════════════════════════════ -->
   <div id="tab-all-results" class="tab-page" style="display:none">
     <div class="page-header">
       <h1>All Test Results</h1>
@@ -474,70 +593,94 @@
 
       <div class="ar-filter-grid">
 
-        <!-- Row 1: text/dropdown filters -->
+        <!-- Student: combo -->
         <div class="form-group" style="margin-bottom:0">
           <label>Student</label>
+          <input type="text" id="ar-student-text" class="combo-text"
+                 placeholder="🔍 Type to search student…"
+                 oninput="arComboFilter('ar-student-text','ar-student'); arApply()"
+                 style="width:100%;margin-bottom:.35rem">
           <select id="ar-student" onchange="arApply()">
             <option value="">All Students</option>
             {% for s in students %}
-            <option value="{{ s.id }}">{{ s.name }}</option>
+            <option value="{{ s.id }}" data-search="{{ s.name|lower }}">{{ s.name }}</option>
             {% endfor %}
           </select>
         </div>
 
+        <!-- Class: combo -->
         <div class="form-group" style="margin-bottom:0">
           <label>Class</label>
+          <input type="text" id="ar-class-text" class="combo-text"
+                 placeholder="🔍 Type class…"
+                 oninput="arComboFilter('ar-class-text','ar-class'); arApply()"
+                 style="width:100%;margin-bottom:.35rem">
           <select id="ar-class" onchange="arApply()">
             <option value="">All Classes</option>
             {% set ns = namespace(classes=[]) %}
             {% for s in students %}
               {% if s.class not in ns.classes %}
-                <option value="{{ s.class }}">Class {{ s.class }}</option>
+                <option value="{{ s.class }}" data-search="{{ s.class|lower }}">Class {{ s.class }}</option>
                 {% set ns.classes = ns.classes + [s.class] %}
               {% endif %}
             {% endfor %}
           </select>
         </div>
 
+        <!-- Batch: combo -->
         <div class="form-group" style="margin-bottom:0">
           <label>Batch</label>
+          <input type="text" id="ar-batch-text" class="combo-text"
+                 placeholder="🔍 Type batch…"
+                 oninput="arComboFilter('ar-batch-text','ar-batch'); arApply()"
+                 style="width:100%;margin-bottom:.35rem">
           <select id="ar-batch" onchange="arApply()">
             <option value="">All Batches</option>
             {% set ns2 = namespace(batches=[]) %}
             {% for s in students %}
               {% if s.batch not in ns2.batches %}
-                <option value="{{ s.batch }}">{{ s.batch }}</option>
+                <option value="{{ s.batch }}" data-search="{{ s.batch|lower }}">{{ s.batch }}</option>
                 {% set ns2.batches = ns2.batches + [s.batch] %}
               {% endif %}
             {% endfor %}
           </select>
         </div>
 
+        <!-- Subject: combo -->
         <div class="form-group" style="margin-bottom:0">
           <label>Subject</label>
+          <input type="text" id="ar-subject-text" class="combo-text"
+                 placeholder="🔍 Type subject…"
+                 oninput="arComboFilter('ar-subject-text','ar-subject'); arApply()"
+                 style="width:100%;margin-bottom:.35rem">
           <select id="ar-subject" onchange="arApply()">
             <option value="">All Subjects</option>
             {% set ns3 = namespace(subjs=[]) %}
             {% for t in tests %}
               {% if t.subject not in ns3.subjs %}
-                <option value="{{ t.subject }}">{{ t.subject }}</option>
+                <option value="{{ t.subject }}" data-search="{{ t.subject|lower }}">{{ t.subject }}</option>
                 {% set ns3.subjs = ns3.subjs + [t.subject] %}
               {% endif %}
             {% endfor %}
           </select>
         </div>
 
+        <!-- Test Code: combo -->
         <div class="form-group" style="margin-bottom:0">
           <label>Test Code</label>
+          <input type="text" id="ar-testcode-text" class="combo-text"
+                 placeholder="🔍 Type test code…"
+                 oninput="arComboFilter('ar-testcode-text','ar-testcode'); arApply()"
+                 style="width:100%;margin-bottom:.35rem">
           <select id="ar-testcode" onchange="arApply()">
             <option value="">All Tests</option>
             {% for t in tests %}
-            <option value="{{ t.code }}">{{ t.code }} – {{ t.subject }}</option>
+            <option value="{{ t.code }}" data-search="{{ t.code|lower }} {{ t.subject|lower }}">{{ t.code }} – {{ t.subject }}</option>
             {% endfor %}
           </select>
         </div>
 
-        <!-- Date range -->
+        <!-- Date range (unchanged, no dropdown needed) -->
         <div class="form-group" style="margin-bottom:0">
           <label>Date From</label>
           <input type="date" id="ar-date-from" onchange="arApply()">
@@ -548,7 +691,7 @@
           <input type="date" id="ar-date-to" onchange="arApply()">
         </div>
 
-        <!-- Percentage range -->
+        <!-- Percentage range (unchanged) -->
         <div class="form-group" style="margin-bottom:0">
           <label>Min %</label>
           <input type="number" id="ar-pct-min" min="0" max="100" placeholder="0" oninput="arApply()">
@@ -581,7 +724,6 @@
         <h3>Results <span id="ar-heading-count" style="font-size:.82rem;color:var(--gray);font-weight:400"></span></h3>
       </div>
 
-      <!-- Desktop table -->
       <div class="table-scroll-wrap">
         <table>
           <thead><tr>
@@ -743,7 +885,6 @@
         {% for n in notices %}
         <div class="nb-admin-card {% if not n.is_active %}nb-inactive{% endif %}">
 
-          <!-- Card header -->
           <div class="nb-admin-card-header">
             <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
               <span class="nb-type-badge nb-type-{{ n.type }}">
@@ -755,18 +896,15 @@
               <span style="font-size:.75rem;color:var(--gray)">Order: {{ n.display_order }}</span>
             </div>
             <div style="display:flex;gap:.4rem;flex-shrink:0;flex-wrap:wrap">
-              <!-- Toggle active -->
               <form method="POST" action="/admin/notices/toggle/{{ n.id }}" style="display:inline">
                 <button class="btn btn-secondary btn-sm" type="submit">
                   {% if n.is_active %}👁 Hide{% else %}👁 Show{% endif %}
                 </button>
               </form>
-              <!-- Edit button -->
               <button class="btn btn-secondary btn-sm" type="button"
                 onclick="openNoticeEdit({{ n.id }}, '{{ n.type }}', {{ n.title|tojson }}, {{ (n.content or '')|tojson }}, {{ n.display_order }}, {{ 1 if n.is_active else 0 }}, {{ (n.image_path or '')|tojson }})">
                 ✏️ Edit
               </button>
-              <!-- Delete -->
               <form method="POST" action="/admin/notices/delete/{{ n.id }}" style="display:inline"
                     onsubmit="return confirm('Delete this notice permanently?')">
                 <button class="btn btn-danger btn-sm">🗑️</button>
@@ -774,7 +912,6 @@
             </div>
           </div>
 
-          <!-- Card body -->
           {% if n.content %}
           <div style="color:var(--gray);font-size:.85rem;margin-top:.5rem;padding-left:.3rem">{{ n.content }}</div>
           {% endif %}
@@ -856,7 +993,6 @@
     </div>
   </div>
 
-
   <!-- SETTINGS -->
   <div id="tab-settings" class="tab-page" style="display:none">
     <div class="page-header"><h1>Change Password</h1><p>Update your admin password</p></div>
@@ -873,7 +1009,7 @@
     </div>
   </div>
 
-  <!-- ══ PAGE FOOTER ══ -->
+  <!-- PAGE FOOTER -->
   <footer class="dash-footer">
     <div class="df-grid">
       <div class="df-col">
@@ -902,13 +1038,12 @@ Opposite to "ENTRY GATE" of Sector 17 market.</div>
         <div class="df-line">📞 <a href="tel:+919818545682">+91 98185 45682</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
         <div class="df-line">F-85☎️ <a href="tel:+911294001713">+91 1294 001 713</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
         <div class="df-line">F-17☎️ <a href="tel:+9101294018711">+91 1294 018711</a> &nbsp;·&nbsp; ✉️ <a href="mailto:fundaazeducation@gmail.com">fundaazeducation@gmail.com</a></div>
-        
       </div>
     </div>
   </footer>
 </main>
 
-<!-- EDIT MODAL -->
+<!-- EDIT STUDENT MODAL -->
 <div class="modal-overlay" id="edit-modal" style="display:none">
   <div class="modal" style="position:relative">
     <button class="btn-close-modal" onclick="closeModal()">✕</button>
@@ -957,10 +1092,86 @@ Opposite to "ENTRY GATE" of Sector 17 market.</div>
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin_charts.js') }}"></script>
+
 <script>
-  const initTab='{{ init_tab if init_tab is defined else request.args.get("tab","overview") }}';
-  switchTab(initTab);
-  {% if found_student and progress_results %}loadAdminCharts({{ found_student.id }});{% endif %}
+/* ══════════════════════════════════════════════════════════
+   COMBO FILTER HELPERS
+   ══════════════════════════════════════════════════════════ */
+
+/**
+ * comboFilterSelect(textInputId, selectId)
+ * Filters a <select>'s <option> elements based on the text input value.
+ * Hides non-matching options and resets selection to the "All / blank" option
+ * when the text changes so the dropdown stays consistent.
+ */
+function comboFilterSelect(textInputId, selectId) {
+  const query = document.getElementById(textInputId).value.toLowerCase().trim();
+  const sel   = document.getElementById(selectId);
+  const opts  = sel.querySelectorAll('option');
+
+  let visibleCount = 0;
+  opts.forEach(opt => {
+    if (!opt.value) { opt.style.display = ''; return; } // always show blank/all option
+    const searchText = (opt.dataset.search || opt.textContent).toLowerCase();
+    const show = !query || searchText.includes(query);
+    opt.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
+  });
+
+  // If currently selected option is now hidden, reset to blank
+  const currentOpt = sel.options[sel.selectedIndex];
+  if (currentOpt && currentOpt.style.display === 'none') {
+    sel.value = '';
+  }
+}
+
+/**
+ * arComboFilter(textInputId, selectId)
+ * Same as above but for the All Results filter panel.
+ * Called on each keystroke; arApply() is called separately after this.
+ */
+function arComboFilter(textInputId, selectId) {
+  comboFilterSelect(textInputId, selectId);
+}
+
+/**
+ * arClearAll — extended to also clear combo text inputs
+ */
+const _origArClearAll = typeof arClearAll !== 'undefined' ? arClearAll : null;
+function arClearAll() {
+  // Clear all combo text inputs
+  ['ar-student-text','ar-class-text','ar-batch-text','ar-subject-text','ar-testcode-text'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // Restore all hidden options in every combo select
+  ['ar-student','ar-class','ar-batch','ar-subject','ar-testcode'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.querySelectorAll('option').forEach(o => o.style.display = '');
+    sel.value = '';
+  });
+
+  // Clear date / pct inputs
+  ['ar-date-from','ar-date-to','ar-pct-min','ar-pct-max'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // Reset quick-filter tabs
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  const allBtn = document.getElementById('ar-qf-all');
+  if (allBtn) allBtn.classList.add('active');
+
+  // Re-apply (show everything)
+  if (typeof arApply === 'function') arApply();
+}
+
+/* ── Init ── */
+const initTab = '{{ init_tab if init_tab is defined else request.args.get("tab","overview") }}';
+switchTab(initTab);
+{% if found_student and progress_results %}loadAdminCharts({{ found_student.id }});{% endif %}
 </script>
 </body>
 </html>
