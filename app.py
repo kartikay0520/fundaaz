@@ -13,7 +13,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-fallback-change-in-production')
-
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV') == 'production',
@@ -21,57 +20,45 @@ app.config.update(
 )
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            'static', 'uploads', 'notices')
+                              'static', 'uploads', 'notices')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
 
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def save_image(file_obj):
     if not file_obj or file_obj.filename == '':
         return None
     if not allowed_image(file_obj.filename):
         return None
-    ext = file_obj.filename.rsplit('.', 1)[1].lower()
+    ext      = file_obj.filename.rsplit('.', 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
     file_obj.save(os.path.join(UPLOAD_FOLDER, filename))
     return filename
 
-
-# ── PDF ─────────────────────────────────────
 try:
     from pdf_report import generate_pdf as _generate_pdf
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
 
-
 with app.app_context():
     init_db()
 
 app.teardown_appcontext(close_db)
 
-
-# ── Headers ─────────────────────────────────
 @app.after_request
 def add_ios_headers(response):
     response.headers['Vary'] = 'Accept'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
-
-# ── Utils ───────────────────────────────────
 def hash_pwd(pwd):
     return hashlib.sha256((pwd + '_fz_salt').encode()).hexdigest()
 
-
 def admin_required():
     return session.get('role') != 'admin'
-
 
 def student_required():
     return session.get('role') != 'student'
@@ -91,13 +78,13 @@ def index():
 @app.route('/login', methods=['POST'])
 def login():
     role = request.form.get('role')
-    uid = request.form.get('uid', '').strip()
-    pwd = request.form.get('pwd', '')
+    uid  = request.form.get('uid', '').strip()
+    pwd  = request.form.get('pwd', '')
 
     if role == 'admin':
         admin = db_execute('SELECT * FROM admin WHERE username=?', (uid,)).fetchone()
         if admin and admin['password'] == hash_pwd(pwd):
-            session['role'] = 'admin'
+            session['role']    = 'admin'
             session['user_id'] = 'admin'
             return redirect(url_for('admin_dashboard'))
         return render_template('index.html', error='admin', msg='Invalid admin credentials')
@@ -105,7 +92,7 @@ def login():
     elif role == 'student':
         stu = db_execute('SELECT * FROM students WHERE login_id=?', (uid,)).fetchone()
         if stu and stu['password'] == hash_pwd(pwd):
-            session['role'] = 'student'
+            session['role']    = 'student'
             session['user_id'] = stu['id']
             return redirect(url_for('student_dashboard'))
         return render_template('index.html', error='student', msg='Invalid student credentials')
@@ -120,33 +107,33 @@ def logout():
 
 
 # ─────────────────────────────────────────────
-# ADMIN DASHBOARD
+# ADMIN CONTEXT
 # ─────────────────────────────────────────────
 def _admin_context():
     return dict(
         students=db_execute('SELECT * FROM students ORDER BY name').fetchall(),
         tests=db_execute('SELECT * FROM tests ORDER BY date DESC').fetchall(),
         recent_results=db_execute('''
-            SELECT tr.id,tr.marks,s.name AS student_name,
-                   t.code AS test_code,t.subject,t.total_marks
+            SELECT tr.id, tr.marks, s.name AS student_name,
+                   t.code AS test_code, t.subject, t.total_marks
             FROM test_results tr
-            JOIN students s ON tr.student_id=s.id
-            JOIN tests t ON tr.test_id=t.id
+            JOIN students s ON tr.student_id = s.id
+            JOIN tests    t ON tr.test_id    = t.id
             ORDER BY tr.id DESC LIMIT 10''').fetchall(),
         all_results=db_execute('''
             SELECT tr.id, tr.marks, tr.student_id,
-                   s.name AS student_name,
+                   s.name  AS student_name,
                    s.class AS student_class,
                    s.batch AS student_batch,
-                   t.code AS test_code,
+                   t.code  AS test_code,
                    t.subject, t.total_marks, t.date
             FROM test_results tr
             JOIN students s ON tr.student_id = s.id
-            JOIN tests t ON tr.test_id = t.id
+            JOIN tests    t ON tr.test_id    = t.id
             ORDER BY t.date DESC, s.name ASC''').fetchall(),
         stats=db_execute('''SELECT
-            (SELECT COUNT(*) FROM students) AS students,
-            (SELECT COUNT(*) FROM tests) AS tests,
+            (SELECT COUNT(*) FROM students)     AS students,
+            (SELECT COUNT(*) FROM tests)        AS tests,
             (SELECT COUNT(*) FROM test_results) AS results,
             (SELECT COUNT(DISTINCT class) FROM students) AS classes
         ''').fetchone(),
@@ -163,50 +150,169 @@ def admin_dashboard():
 
 
 # ─────────────────────────────────────────────
-# 🔥 FIXED NOTICE FUNCTIONS
+# STUDENT PROGRESS SEARCH
 # ─────────────────────────────────────────────
-def _get_notices_all():
-    return db_execute(
-        'SELECT * FROM notices ORDER BY display_order ASC, id DESC'
-    ).fetchall()
+@app.route('/admin/student-progress')
+def student_progress():
+    if admin_required(): return redirect(url_for('index'))
+    query       = request.args.get('q', '').strip()
+    student     = None
+    results     = []
+    stats       = {}
+    subj_stats  = []
+    topic_stats = []
 
+    if query:
+        student = db_execute(
+            "SELECT * FROM students WHERE login_id=? OR LOWER(name) LIKE ?",
+            (query, f'%{query.lower()}%')
+        ).fetchone()
 
-def _get_notices_active():
-    return db_execute(
-        'SELECT * FROM notices WHERE is_active=1 ORDER BY display_order ASC, id DESC'
-    ).fetchall()
+        if student:
+            results = db_execute('''
+                SELECT tr.marks, t.code, t.subject, t.total_marks,
+                       t.date, t.chapter, t.topic
+                FROM test_results tr
+                JOIN tests t ON tr.test_id = t.id
+                WHERE tr.student_id = ?
+                ORDER BY t.date ASC
+            ''', (student['id'],)).fetchall()
+
+            if results:
+                pcts = [round(r['marks'] / r['total_marks'] * 100, 1) for r in results]
+                stats = dict(
+                    avg=round(sum(pcts) / len(pcts), 1),
+                    best=max(pcts),
+                    worst=min(pcts),
+                    total=len(pcts)
+                )
+                sm = {}
+                for r in results:
+                    s = r['subject']
+                    if s not in sm: sm[s] = {'marks': 0, 'total': 0, 'count': 0}
+                    sm[s]['marks'] += r['marks']
+                    sm[s]['total'] += r['total_marks']
+                    sm[s]['count'] += 1
+                subj_stats = [
+                    {'subject': k, 'pct': round(v['marks'] / v['total'] * 100, 1), 'tests': v['count']}
+                    for k, v in sm.items()
+                ]
+                tm = {}
+                for r in results:
+                    if not r['chapter'] and not r['topic']:
+                        continue
+                    key = (r['chapter'] or 'Uncategorised',
+                           r['topic']   or 'General',
+                           r['subject'])
+                    if key not in tm: tm[key] = {'marks': 0, 'total': 0, 'count': 0}
+                    tm[key]['marks'] += r['marks']
+                    tm[key]['total'] += r['total_marks']
+                    tm[key]['count'] += 1
+                topic_stats = [
+                    {'chapter': k[0], 'topic': k[1], 'subject': k[2],
+                     'pct': round(v['marks'] / v['total'] * 100, 1), 'tests': v['count']}
+                    for k, v in tm.items()
+                ]
+
+    ctx = _admin_context()
+    ctx.update(
+        search_query=query,
+        found_student=student,
+        progress_results=results,
+        progress_stats=stats,
+        progress_subj=subj_stats,
+        progress_topics=topic_stats,
+        init_tab='student-progress'
+    )
+    return render_template('admin.html', **ctx)
 
 
 # ─────────────────────────────────────────────
-# 🔥 FIXED DATABASE DOWNLOAD
+# PDF DOWNLOAD
+# ─────────────────────────────────────────────
+@app.route('/admin/student-pdf/<int:sid>')
+def download_student_pdf(sid):
+    if admin_required(): return abort(403)
+    if not PDF_AVAILABLE:
+        return ('PDF generation unavailable. Run: pip install reportlab', 503)
+
+    student = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
+    if not student: return abort(404)
+
+    date_from = request.args.get('from', '').strip()
+    date_to   = request.args.get('to', '').strip()
+    month     = request.args.get('month', '').strip()
+
+    where_parts = ['tr.student_id = ?']
+    params      = [sid]
+    label       = 'All Time'
+
+    if month:
+        where_parts.append("t.date LIKE ?")
+        params.append(f'{month}%')
+        label = f'Month {month}'
+    elif date_from and date_to:
+        where_parts.append("t.date >= ? AND t.date <= ?")
+        params += [date_from, date_to]
+        label = f'{date_from} to {date_to}'
+    elif date_from:
+        where_parts.append("t.date >= ?")
+        params.append(date_from)
+        label = f'From {date_from}'
+    elif date_to:
+        where_parts.append("t.date <= ?")
+        params.append(date_to)
+        label = f'Until {date_to}'
+
+    where_sql = ' AND '.join(where_parts)
+    results = db_execute(f'''
+        SELECT tr.marks, t.code, t.subject, t.total_marks,
+               t.date, t.chapter, t.topic
+        FROM test_results tr
+        JOIN tests t ON tr.test_id = t.id
+        WHERE {where_sql}
+        ORDER BY t.date ASC
+    ''', params).fetchall()
+
+    try:
+        pdf_bytes = _generate_pdf(student, results, label)
+    except Exception as e:
+        app.logger.error(f'PDF error for student {sid}: {e}')
+        return ('PDF generation failed', 500)
+
+    safe_name  = re.sub(r'[^a-zA-Z0-9]', '_', student['name'])
+    safe_label = re.sub(r'[^a-zA-Z0-9]', '_', label)
+    filename   = f'FUNDAAZ_{safe_name}_{safe_label}.pdf'
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+# ─────────────────────────────────────────────
+# DATABASE DOWNLOAD
 # ─────────────────────────────────────────────
 @app.route('/admin/download-db')
 def download_db():
     if admin_required(): return abort(403)
-
     if USE_POSTGRES:
-        return "Not available in production (Supabase)", 400
-
+        return 'Database download not available for cloud database. Use Supabase dashboard.', 400
     db_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         'database', 'fundaaz.db'
     )
-    return send_file(
-        db_path,
-        as_attachment=True,
-        download_name='fundaaz_backup.db'
-    )
+    return send_file(db_path, as_attachment=True, download_name='fundaaz_backup.db')
 
-# ─────────────────────────────────────────────
-# (REST OF YOUR ORIGINAL CODE REMAINS EXACT SAME)
-# ─────────────────────────────────────────────
+
 # ─────────────────────────────────────────────
 # STUDENT CRUD
 # ─────────────────────────────────────────────
 @app.route('/admin/students/add', methods=['POST'])
 def add_student():
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     try:
         db_execute(
             '''INSERT INTO students
@@ -219,16 +325,15 @@ def add_student():
         )
         db_commit()
     except Exception as e:
-        if 'UNIQUE' in str(e):
-            return redirect(url_for('admin_dashboard')+'?tab=add-student&msg=Login+ID+already+exists&err=1')
-        return redirect(url_for('admin_dashboard')+'?tab=add-student&msg=Error+adding+student&err=1')
-    return redirect(url_for('admin_dashboard')+'?tab=students&msg=Student+added+successfully')
+        if 'UNIQUE' in str(e) or 'unique' in str(e).lower():
+            return redirect(url_for('admin_dashboard') + '?tab=add-student&msg=Login+ID+already+exists&err=1')
+        return redirect(url_for('admin_dashboard') + '?tab=add-student&msg=Error+adding+student&err=1')
+    return redirect(url_for('admin_dashboard') + '?tab=students&msg=Student+added+successfully')
 
 
 @app.route('/admin/students/edit/<int:sid>', methods=['POST'])
 def edit_student(sid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute(
         '''UPDATE students SET name=?,class=?,batch=?,subjects=?,
            parent_name=?,parent_contact=? WHERE id=?''',
@@ -237,17 +342,17 @@ def edit_student(sid):
          request.form['parent_contact'], sid)
     )
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=students&msg=Student+updated')
+    return redirect(url_for('admin_dashboard') + '?tab=students&msg=Student+updated')
 
 
 @app.route('/admin/students/delete/<int:sid>', methods=['POST'])
 def delete_student(sid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute('DELETE FROM test_results WHERE student_id=?', (sid,))
     db_execute('DELETE FROM students WHERE id=?', (sid,))
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=students&msg=Student+deleted')
+    return redirect(url_for('admin_dashboard') + '?tab=students&msg=Student+deleted')
+
 
 # ─────────────────────────────────────────────
 # TEST CRUD
@@ -255,7 +360,6 @@ def delete_student(sid):
 @app.route('/admin/tests/add', methods=['POST'])
 def add_test():
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     try:
         db_execute(
             '''INSERT INTO tests
@@ -264,43 +368,42 @@ def add_test():
             (request.form['code'].upper(), request.form['subject'],
              int(request.form['total_marks']), request.form['class'],
              request.form['batch'], request.form['date'],
-             request.form.get('chapter','').strip() or None,
-             request.form.get('topic','').strip()   or None)
+             request.form.get('chapter', '').strip() or None,
+             request.form.get('topic', '').strip()   or None)
         )
         db_commit()
     except Exception as e:
-        if 'UNIQUE' in str(e):
-            return redirect(url_for('admin_dashboard')+'?tab=add-test&msg=Test+code+already+exists&err=1')
-        return redirect(url_for('admin_dashboard')+'?tab=add-test&msg=Error+creating+test&err=1')
-    return redirect(url_for('admin_dashboard')+'?tab=tests&msg=Test+created')
+        if 'UNIQUE' in str(e) or 'unique' in str(e).lower():
+            return redirect(url_for('admin_dashboard') + '?tab=add-test&msg=Test+code+already+exists&err=1')
+        return redirect(url_for('admin_dashboard') + '?tab=add-test&msg=Error+creating+test&err=1')
+    return redirect(url_for('admin_dashboard') + '?tab=tests&msg=Test+created')
 
 
 @app.route('/admin/tests/edit/<int:tid>', methods=['POST'])
 def edit_test(tid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute(
         '''UPDATE tests SET code=?,subject=?,total_marks=?,class=?,batch=?,
            date=?,chapter=?,topic=? WHERE id=?''',
         (request.form['code'].upper(), request.form['subject'],
          int(request.form['total_marks']), request.form['class'],
          request.form['batch'], request.form['date'],
-         request.form.get('chapter','').strip() or None,
-         request.form.get('topic','').strip()   or None,
+         request.form.get('chapter', '').strip() or None,
+         request.form.get('topic', '').strip()   or None,
          tid)
     )
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=tests&msg=Test+updated')
+    return redirect(url_for('admin_dashboard') + '?tab=tests&msg=Test+updated')
 
 
 @app.route('/admin/tests/delete/<int:tid>', methods=['POST'])
 def delete_test(tid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute('DELETE FROM test_results WHERE test_id=?', (tid,))
     db_execute('DELETE FROM tests WHERE id=?', (tid,))
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=tests&msg=Test+deleted')
+    return redirect(url_for('admin_dashboard') + '?tab=tests&msg=Test+deleted')
+
 
 # ─────────────────────────────────────────────
 # MARKS CRUD
@@ -308,13 +411,12 @@ def delete_test(tid):
 @app.route('/admin/marks/add', methods=['POST'])
 def add_marks():
     if admin_required(): return redirect(url_for('index'))
-    db    = get_db()
     sid   = int(request.form['student_id'])
     tid   = int(request.form['test_id'])
     marks = int(request.form['marks'])
     test  = db_execute('SELECT total_marks FROM tests WHERE id=?', (tid,)).fetchone()
     if marks > test['total_marks']:
-        return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Marks+exceed+total&err=1')
+        return redirect(url_for('admin_dashboard') + '?tab=marks&msg=Marks+exceed+total&err=1')
     existing = db_execute(
         'SELECT id FROM test_results WHERE student_id=? AND test_id=?', (sid, tid)
     ).fetchone()
@@ -324,16 +426,16 @@ def add_marks():
         db_execute('INSERT INTO test_results (student_id,test_id,marks) VALUES (?,?,?)',
                    (sid, tid, marks))
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Marks+saved')
+    return redirect(url_for('admin_dashboard') + '?tab=marks&msg=Marks+saved')
 
 
 @app.route('/admin/marks/delete/<int:rid>', methods=['POST'])
 def delete_marks(rid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute('DELETE FROM test_results WHERE id=?', (rid,))
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=marks&msg=Result+deleted')
+    return redirect(url_for('admin_dashboard') + '?tab=marks&msg=Result+deleted')
+
 
 # ─────────────────────────────────────────────
 # ADMIN CHANGE PASSWORD
@@ -341,18 +443,18 @@ def delete_marks(rid):
 @app.route('/admin/change-password', methods=['POST'])
 def admin_change_password():
     if admin_required(): return redirect(url_for('index'))
-    db      = get_db()
     admin   = db_execute('SELECT * FROM admin').fetchone()
     old     = request.form.get('old_password', '')
     new     = request.form.get('new_password', '')
     confirm = request.form.get('confirm_password', '')
     if admin['password'] != hash_pwd(old):
-        return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Wrong+current+password&err=1')
+        return redirect(url_for('admin_dashboard') + '?tab=settings&msg=Wrong+current+password&err=1')
     if new != confirm or len(new) < 6:
-        return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Password+mismatch+or+too+short&err=1')
+        return redirect(url_for('admin_dashboard') + '?tab=settings&msg=Password+mismatch+or+too+short&err=1')
     db_execute('UPDATE admin SET password=?', (hash_pwd(new),))
     db_commit()
-    return redirect(url_for('admin_dashboard')+'?tab=settings&msg=Password+updated')
+    return redirect(url_for('admin_dashboard') + '?tab=settings&msg=Password+updated')
+
 
 # ─────────────────────────────────────────────
 # STUDENT DASHBOARD
@@ -360,9 +462,8 @@ def admin_change_password():
 @app.route('/student')
 def student_dashboard():
     if student_required(): return redirect(url_for('index'))
-    db  = get_db()
-    sid = session['user_id']
-    stu = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
+    sid     = session['user_id']
+    stu     = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
     results = db_execute('''
         SELECT tr.*, t.code, t.subject, t.total_marks, t.date, t.chapter, t.topic
         FROM test_results tr JOIN tests t ON tr.test_id = t.id
@@ -374,19 +475,19 @@ def student_dashboard():
 @app.route('/student/change-password', methods=['POST'])
 def student_change_password():
     if student_required(): return redirect(url_for('index'))
-    db      = get_db()
     sid     = session['user_id']
     stu     = db_execute('SELECT * FROM students WHERE id=?', (sid,)).fetchone()
     old     = request.form.get('old_password', '')
     new     = request.form.get('new_password', '')
     confirm = request.form.get('confirm_password', '')
     if stu['password'] != hash_pwd(old):
-        return redirect(url_for('student_dashboard')+'?tab=settings&msg=Wrong+current+password&err=1')
+        return redirect(url_for('student_dashboard') + '?tab=settings&msg=Wrong+current+password&err=1')
     if new != confirm or len(new) < 6:
-        return redirect(url_for('student_dashboard')+'?tab=settings&msg=Password+mismatch&err=1')
+        return redirect(url_for('student_dashboard') + '?tab=settings&msg=Password+mismatch&err=1')
     db_execute('UPDATE students SET password=? WHERE id=?', (hash_pwd(new), sid))
     db_commit()
-    return redirect(url_for('student_dashboard')+'?tab=settings&msg=Password+updated')
+    return redirect(url_for('student_dashboard') + '?tab=settings&msg=Password+updated')
+
 
 # ─────────────────────────────────────────────
 # CHART DATA APIs
@@ -394,7 +495,6 @@ def student_change_password():
 @app.route('/api/student/chart-data')
 def student_chart_data():
     if student_required(): return jsonify({})
-    db        = get_db()
     sid       = session['user_id']
     filter_by = request.args.get('filter', 'all')
     today     = date.today()
@@ -417,73 +517,78 @@ def student_chart_data():
 
     where_sql = ' AND '.join(where_parts)
     rows = db_execute(f'''
-        SELECT t.code,t.subject,t.total_marks,tr.marks,t.date,t.chapter,t.topic
-        FROM test_results tr JOIN tests t ON tr.test_id=t.id
+        SELECT t.code, t.subject, t.total_marks, tr.marks, t.date, t.chapter, t.topic
+        FROM test_results tr JOIN tests t ON tr.test_id = t.id
         WHERE {where_sql} ORDER BY t.date
     ''', params).fetchall()
 
-    trend  = [{'label':r['code'],'pct':round(r['marks']/r['total_marks']*100,1),'date':r['date']}
+    trend  = [{'label': r['code'], 'pct': round(r['marks'] / r['total_marks'] * 100, 1), 'date': r['date']}
                for r in rows]
     subj   = {}
     topics = {}
     for r in rows:
         s = r['subject']
-        if s not in subj: subj[s] = {'total':0,'max':0}
-        subj[s]['total'] += r['marks']; subj[s]['max'] += r['total_marks']
+        if s not in subj: subj[s] = {'total': 0, 'max': 0}
+        subj[s]['total'] += r['marks']
+        subj[s]['max']   += r['total_marks']
         if r['chapter'] or r['topic']:
             key = f"{r['chapter'] or 'Uncategorised'} \u203a {r['topic'] or 'General'}"
-            if key not in topics: topics[key] = {'total':0,'max':0,'subject':r['subject']}
-            topics[key]['total'] += r['marks']; topics[key]['max'] += r['total_marks']
+            if key not in topics: topics[key] = {'total': 0, 'max': 0, 'subject': r['subject']}
+            topics[key]['total'] += r['marks']
+            topics[key]['max']   += r['total_marks']
 
     return jsonify({
         'trend':    trend,
-        'subjects': [{'subject':k,'pct':round(v['total']/v['max']*100,1)} for k,v in subj.items()],
-        'topics':   [{'label':k,'pct':round(v['total']/v['max']*100,1),'subject':v['subject']}
-                      for k,v in topics.items()],
+        'subjects': [{'subject': k, 'pct': round(v['total'] / v['max'] * 100, 1)} for k, v in subj.items()],
+        'topics':   [{'label': k, 'pct': round(v['total'] / v['max'] * 100, 1), 'subject': v['subject']}
+                      for k, v in topics.items()],
     })
 
 
 @app.route('/api/admin/student-chart/<int:sid>')
 def admin_student_chart(sid):
     if admin_required(): return jsonify({})
-    db   = get_db()
     rows = db_execute('''
-        SELECT t.code,t.subject,t.total_marks,tr.marks,t.date,t.chapter,t.topic
-        FROM test_results tr JOIN tests t ON tr.test_id=t.id
+        SELECT t.code, t.subject, t.total_marks, tr.marks, t.date, t.chapter, t.topic
+        FROM test_results tr JOIN tests t ON tr.test_id = t.id
         WHERE tr.student_id=? ORDER BY t.date
     ''', (sid,)).fetchall()
 
-    trend  = [{'label':r['code'],'pct':round(r['marks']/r['total_marks']*100,1),'date':r['date']}
+    trend  = [{'label': r['code'], 'pct': round(r['marks'] / r['total_marks'] * 100, 1), 'date': r['date']}
                for r in rows]
     subj   = {}
     topics = {}
     for r in rows:
         s = r['subject']
-        if s not in subj: subj[s] = {'total':0,'max':0}
-        subj[s]['total'] += r['marks']; subj[s]['max'] += r['total_marks']
+        if s not in subj: subj[s] = {'total': 0, 'max': 0}
+        subj[s]['total'] += r['marks']
+        subj[s]['max']   += r['total_marks']
         if r['chapter'] or r['topic']:
             key = f"{r['chapter'] or 'Uncategorised'} \u203a {r['topic'] or 'General'}"
-            if key not in topics: topics[key] = {'total':0,'max':0,'subject':r['subject']}
-            topics[key]['total'] += r['marks']; topics[key]['max'] += r['total_marks']
+            if key not in topics: topics[key] = {'total': 0, 'max': 0, 'subject': r['subject']}
+            topics[key]['total'] += r['marks']
+            topics[key]['max']   += r['total_marks']
 
     return jsonify({
         'trend':    trend,
-        'subjects': [{'subject':k,'pct':round(v['total']/v['max']*100,1)} for k,v in subj.items()],
-        'topics':   [{'label':k,'pct':round(v['total']/v['max']*100,1),'subject':v['subject']}
-                      for k,v in topics.items()],
+        'subjects': [{'subject': k, 'pct': round(v['total'] / v['max'] * 100, 1)} for k, v in subj.items()],
+        'topics':   [{'label': k, 'pct': round(v['total'] / v['max'] * 100, 1), 'subject': v['subject']}
+                      for k, v in topics.items()],
     })
+
 
 # ─────────────────────────────────────────────
 # NOTICE BOARD — ADMIN ROUTES
 # ─────────────────────────────────────────────
 
 def _get_notices_all():
-    return get_db().execute(
+    return db_execute(
         'SELECT * FROM notices ORDER BY display_order ASC, id DESC'
     ).fetchall()
 
+
 def _get_notices_active():
-    return get_db().execute(
+    return db_execute(
         'SELECT * FROM notices WHERE is_active=1 ORDER BY display_order ASC, id DESC'
     ).fetchall()
 
@@ -500,7 +605,6 @@ def admin_notices():
 @app.route('/admin/notices/add', methods=['POST'])
 def add_notice():
     if admin_required(): return redirect(url_for('index'))
-    db      = get_db()
     title   = request.form.get('title', '').strip()[:200]
     content = request.form.get('content', '').strip()[:2000]
     ntype   = request.form.get('type', 'text')
@@ -524,7 +628,6 @@ def add_notice():
 @app.route('/admin/notices/edit/<int:nid>', methods=['POST'])
 def edit_notice(nid):
     if admin_required(): return redirect(url_for('index'))
-    db      = get_db()
     title   = request.form.get('title', '').strip()[:200]
     content = request.form.get('content', '').strip()[:2000]
     ntype   = request.form.get('type', 'text')
@@ -563,7 +666,6 @@ def edit_notice(nid):
 @app.route('/admin/notices/delete/<int:nid>', methods=['POST'])
 def delete_notice(nid):
     if admin_required(): return redirect(url_for('index'))
-    db     = get_db()
     notice = db_execute('SELECT image_path FROM notices WHERE id=?', (nid,)).fetchone()
     if notice and notice['image_path']:
         img_file = os.path.join(UPLOAD_FOLDER, notice['image_path'])
@@ -577,7 +679,6 @@ def delete_notice(nid):
 @app.route('/admin/notices/toggle/<int:nid>', methods=['POST'])
 def toggle_notice(nid):
     if admin_required(): return redirect(url_for('index'))
-    db = get_db()
     db_execute(
         'UPDATE notices SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?',
         (nid,)
@@ -607,6 +708,18 @@ def api_notices():
     return jsonify(result)
 
 
+# ─────────────────────────────────────────────
+# ERROR HANDLERS
+# ─────────────────────────────────────────────
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('index.html', msg='Page not found'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template('index.html', msg='Server error — please try again'), 500
+
+
 if __name__ == '__main__':
     #app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    app.run(debug=False, host='0.0.0.0', port=5000)
+  app.run(debug=False, host='0.0.0.0', port=5000)
