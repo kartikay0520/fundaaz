@@ -922,7 +922,7 @@
                  style="max-height:160px;max-width:100%;border-radius:8px;object-fit:cover;border:1px solid var(--border)">
           </div>
           {% endif %}
-          <div style="font-size:.73rem;color:var(--gray);margin-top:.5rem">Added {{ n.created_at[:10] }}</div>
+          <div style="font-size:.73rem;color:var(--gray);margin-top:.5rem">Added {{ n.created_at | datefmt }}</div>
         </div>
         {% endfor %}
       </div>
