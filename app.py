@@ -24,8 +24,13 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
+# ── SQL helper: NOW() for PostgreSQL, CURRENT_TIMESTAMP for SQLite ──
+NOW = 'NOW()' if USE_POSTGRES else 'CURRENT_TIMESTAMP'
+
+
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def save_image(file_obj):
     if not file_obj or file_obj.filename == '':
@@ -36,6 +41,7 @@ def save_image(file_obj):
     filename = f"{uuid.uuid4().hex}.{ext}"
     file_obj.save(os.path.join(UPLOAD_FOLDER, filename))
     return filename
+
 
 try:
     from pdf_report import generate_pdf as _generate_pdf
@@ -48,17 +54,32 @@ with app.app_context():
 
 app.teardown_appcontext(close_db)
 
+
 @app.after_request
 def add_ios_headers(response):
     response.headers['Vary'] = 'Accept'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
+
+# ── Jinja2 filter: safely format datetime OR string to YYYY-MM-DD ──
+@app.template_filter('datefmt')
+def datefmt_filter(value):
+    """Works for both PostgreSQL datetime objects and SQLite date strings."""
+    if value is None:
+        return ''
+    if hasattr(value, 'strftime'):
+        return value.strftime('%Y-%m-%d')
+    return str(value)[:10]
+
+
 def hash_pwd(pwd):
     return hashlib.sha256((pwd + '_fz_salt').encode()).hexdigest()
 
+
 def admin_required():
     return session.get('role') != 'admin'
+
 
 def student_required():
     return session.get('role') != 'student'
@@ -655,8 +676,9 @@ def edit_notice(nid):
             os.remove(old_file)
         image_path = None
 
+    # NOW is NOW() for PostgreSQL and CURRENT_TIMESTAMP for SQLite
     db_execute(
-        'UPDATE notices SET type=?, title=?, content=?, image_path=?, is_active=?, display_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',
+        f'UPDATE notices SET type=?, title=?, content=?, image_path=?, is_active=?, display_order=?, updated_at={NOW} WHERE id=?',
         (ntype, title, content or None, image_path, active, order, nid)
     )
     db_commit()
@@ -697,13 +719,19 @@ def api_notices():
     notices = _get_notices_active()
     result  = []
     for n in notices:
+        # Use datefmt logic here too for JSON serialisation safety
+        created = n['created_at']
+        if hasattr(created, 'strftime'):
+            created = created.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            created = str(created)
         result.append({
             'id':         n['id'],
             'type':       n['type'],
             'title':      n['title'],
             'content':    n['content'] or '',
             'image_url':  f"/static/uploads/notices/{n['image_path']}" if n['image_path'] else None,
-            'created_at': n['created_at'],
+            'created_at': created,
         })
     return jsonify(result)
 
@@ -721,5 +749,4 @@ def server_error(e):
 
 
 if __name__ == '__main__':
-    #app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-  app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
