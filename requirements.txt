@@ -5,3 +5,4 @@ flask-limiter
 flask-talisman
 reportlab>=4.0.0
 psycopg2
+supabase
