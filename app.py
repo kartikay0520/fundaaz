@@ -24,23 +24,101 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-# ── SQL helper: NOW() for PostgreSQL, CURRENT_TIMESTAMP for SQLite ──
+# ── SQL helper ──────────────────────────────────────────────────────
 NOW = 'NOW()' if USE_POSTGRES else 'CURRENT_TIMESTAMP'
+
+# ── Supabase Storage ────────────────────────────────────────────────
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip()
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '').strip()
+USE_SUPABASE_STORAGE = bool(SUPABASE_URL and SUPABASE_KEY)
 
 
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _supabase_delete(filename):
+    """Delete a file from Supabase Storage bucket 'notices'."""
+    try:
+        from supabase import create_client
+        sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+        sb.storage.from_('notices').remove([filename])
+    except Exception as e:
+        app.logger.error(f'Supabase delete failed: {e}')
+
+
+def _delete_image(image_path):
+    """
+    Delete an image regardless of whether it is stored in
+    Supabase Storage (full URL) or local disk (filename only).
+    """
+    if not image_path:
+        return
+    if image_path.startswith('http'):
+        if USE_SUPABASE_STORAGE:
+            filename = image_path.split('/')[-1]
+            _supabase_delete(filename)
+    else:
+        local = os.path.join(UPLOAD_FOLDER, image_path)
+        if os.path.exists(local):
+            os.remove(local)
+
+
 def save_image(file_obj):
+    """
+    Save uploaded image.
+    - Production (SUPABASE_URL set): uploads to Supabase Storage,
+      returns full public URL.
+    - Local dev: saves to disk, returns filename only.
+    """
     if not file_obj or file_obj.filename == '':
         return None
     if not allowed_image(file_obj.filename):
         return None
-    ext      = file_obj.filename.rsplit('.', 1)[1].lower()
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    file_obj.save(os.path.join(UPLOAD_FOLDER, filename))
-    return filename
+
+    ext       = file_obj.filename.rsplit('.', 1)[1].lower()
+    filename  = f"{uuid.uuid4().hex}.{ext}"
+    file_data = file_obj.read()
+
+    if USE_SUPABASE_STORAGE:
+        try:
+            from supabase import create_client
+            sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+            sb.storage.from_('notices').upload(
+                path=filename,
+                file=file_data,
+                file_options={'content-type': f'image/{ext}',
+                              'upsert': 'false'}
+            )
+            public_url = (f"{SUPABASE_URL}/storage/v1/object/public"
+                          f"/notices/{filename}")
+            return public_url
+        except Exception as e:
+            app.logger.error(f'Supabase upload failed: {e}')
+            return None
+    else:
+        with open(os.path.join(UPLOAD_FOLDER, filename), 'wb') as f:
+            f.write(file_data)
+        return filename
+
+
+def image_src(image_path):
+    """
+    Return the correct src URL for displaying an image.
+    Full URL (Supabase) → returned as-is.
+    Filename only (local) → prefixed with /static/uploads/notices/.
+    """
+    if not image_path:
+        return None
+    if image_path.startswith('http'):
+        return image_path
+    return f'/static/uploads/notices/{image_path}'
+
+
+# Register as Jinja2 global so templates can call it directly
+@app.context_processor
+def inject_helpers():
+    return dict(image_src=image_src)
 
 
 try:
@@ -62,10 +140,8 @@ def add_ios_headers(response):
     return response
 
 
-# ── Jinja2 filter: safely format datetime OR string to YYYY-MM-DD ──
 @app.template_filter('datefmt')
 def datefmt_filter(value):
-    """Works for both PostgreSQL datetime objects and SQLite date strings."""
     if value is None:
         return ''
     if hasattr(value, 'strftime'):
@@ -599,7 +675,7 @@ def admin_student_chart(sid):
 
 
 # ─────────────────────────────────────────────
-# NOTICE BOARD — ADMIN ROUTES
+# NOTICE BOARD — helpers
 # ─────────────────────────────────────────────
 
 def _get_notices_all():
@@ -613,6 +689,10 @@ def _get_notices_active():
         'SELECT * FROM notices WHERE is_active=1 ORDER BY display_order ASC, id DESC'
     ).fetchall()
 
+
+# ─────────────────────────────────────────────
+# NOTICE BOARD — ADMIN ROUTES
+# ─────────────────────────────────────────────
 
 @app.route('/admin/notices')
 def admin_notices():
@@ -664,21 +744,16 @@ def edit_notice(nid):
     if 'image' in request.files and request.files['image'].filename:
         new_path = save_image(request.files['image'])
         if new_path:
-            if image_path:
-                old_file = os.path.join(UPLOAD_FOLDER, image_path)
-                if os.path.exists(old_file):
-                    os.remove(old_file)
+            _delete_image(image_path)   # delete old from wherever it lives
             image_path = new_path
 
     if request.form.get('remove_image') and image_path:
-        old_file = os.path.join(UPLOAD_FOLDER, image_path)
-        if os.path.exists(old_file):
-            os.remove(old_file)
+        _delete_image(image_path)
         image_path = None
 
-    # NOW is NOW() for PostgreSQL and CURRENT_TIMESTAMP for SQLite
     db_execute(
-        f'UPDATE notices SET type=?, title=?, content=?, image_path=?, is_active=?, display_order=?, updated_at={NOW} WHERE id=?',
+        f'UPDATE notices SET type=?, title=?, content=?, image_path=?, '
+        f'is_active=?, display_order=?, updated_at={NOW} WHERE id=?',
         (ntype, title, content or None, image_path, active, order, nid)
     )
     db_commit()
@@ -689,10 +764,8 @@ def edit_notice(nid):
 def delete_notice(nid):
     if admin_required(): return redirect(url_for('index'))
     notice = db_execute('SELECT image_path FROM notices WHERE id=?', (nid,)).fetchone()
-    if notice and notice['image_path']:
-        img_file = os.path.join(UPLOAD_FOLDER, notice['image_path'])
-        if os.path.exists(img_file):
-            os.remove(img_file)
+    if notice:
+        _delete_image(notice['image_path'])
     db_execute('DELETE FROM notices WHERE id=?', (nid,))
     db_commit()
     return redirect(url_for('admin_notices') + '?msg=Notice+deleted')
@@ -719,7 +792,6 @@ def api_notices():
     notices = _get_notices_active()
     result  = []
     for n in notices:
-        # Use datefmt logic here too for JSON serialisation safety
         created = n['created_at']
         if hasattr(created, 'strftime'):
             created = created.strftime('%Y-%m-%d %H:%M:%S')
@@ -730,7 +802,7 @@ def api_notices():
             'type':       n['type'],
             'title':      n['title'],
             'content':    n['content'] or '',
-            'image_url':  f"/static/uploads/notices/{n['image_path']}" if n['image_path'] else None,
+            'image_url':  image_src(n['image_path']),
             'created_at': created,
         })
     return jsonify(result)
