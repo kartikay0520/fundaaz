@@ -917,7 +917,7 @@
           {% endif %}
           {% if n.image_path %}
           <div style="margin-top:.7rem">
-            <img src="/static/uploads/notices/{{ n.image_path }}"
+            <img src="{{ image_src(n.image_path) }}"
                  alt="{{ n.title }}"
                  style="max-height:160px;max-width:100%;border-radius:8px;object-fit:cover;border:1px solid var(--border)">
           </div>
