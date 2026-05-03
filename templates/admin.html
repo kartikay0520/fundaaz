@@ -271,7 +271,7 @@
 
     <div class="table-card"><div class="table-header"><h3>Subject Performance</h3></div>
       <div class="table-scroll-wrap"><table><thead><tr><th>Subject</th><th>Tests</th><th>Avg %</th><th>Grade</th></tr></thead>
-      <tbody>{% for s in progress_subj %}{% set g='A+' if s.pct>=90 else 'A' if s.pct>=80 else 'B' if s.pct>=70 else 'C' if s.pct>=60 else 'D' if s.pct>=50 else 'F' %}
+      <tbody>{% for s in progress_subj %}{% set g='A+' if s.pct>=90 else 'A' if s.pct>=80 else 'B+' if s.pct>=70 else 'B' if s.pct>=60 else 'C+' if s.pct>=50 else 'C' if s.pct>=40 else 'F' %}
       <tr><td><strong>{{ s.subject }}</strong></td><td>{{ s.tests }}</td>
       <td><span class="pct {% if s.pct>=75 %}pct-high{% elif s.pct>=50 %}pct-mid{% else %}pct-low{% endif %}">{{ s.pct }}%</span></td>
       <td><span class="grade-badge grade-{{ g|replace('+','plus') }}">{{ g }}</span></td></tr>
