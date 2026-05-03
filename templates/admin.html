@@ -277,7 +277,7 @@
       <td><span class="grade-badge grade-{{ g|replace('+','plus') }}">{{ g }}</span></td></tr>
       {% endfor %}</tbody></table></div>
       <div class="card-table" style="padding:.8rem">
-        {% for s in progress_subj %}{% set grade = 'A+' if pct>=90 else 'A' if pct>=75 else 'B' if pct>=50 else 'C' if pct>=33 else 'F' %}
+        {% for s in progress_subj %}{% set g='A+' if s.pct>=90 else 'A' if s.pct>=80 else 'B+' if s.pct>=70 else 'B' if s.pct>=60 else 'C+' if s.pct>=50 else 'C' if s.pct>=40 else 'F' %}
         <div class="card-row"><div class="card-row-title">{{ s.subject }}</div>
           <div class="card-row-grid">
             <div class="card-row-item"><span class="lbl">Tests</span>{{ s.tests }}</div>
